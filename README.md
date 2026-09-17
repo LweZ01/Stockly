@@ -38,8 +38,10 @@ inventory-api/
 │   │   │   └── ❓ (pipes custom si hacen falta, opcional)
 │   │   ├── dto/
 │   │   │   └── pagination-query.dto.ts
-│   │   └── enums/
-│   │       └── role.enum.ts
+│   │   ├── enums/
+│   │   │   └── role.enum.ts
+│   │   └── utils/
+│   │       └── postgres-error.util.ts
 │   │
 │   ├── auth/
 │   │   ├── auth.module.ts
@@ -59,7 +61,8 @@ inventory-api/
 │   │   │   └── user.entity.ts
 │   │   └── dto/
 │   │       ├── create-user.dto.ts
-│   │       └── update-user.dto.ts
+│   │       ├── update-user.dto.ts
+│   │       └── change-password.dto.ts
 │   │
 │   ├── categories/
 │   │   ├── categories.module.ts
@@ -86,6 +89,8 @@ inventory-api/
 │       ├── inventory.module.ts
 │       ├── inventory.controller.ts
 │       ├── inventory.service.ts
+│       ├── enums/
+│       │   └── movement-type.enum.ts
 │       ├── entities/
 │       │   └── inventory-movement.entity.ts   # ❓ nombre y modelo a decidir
 │       └── dto/
@@ -109,14 +114,31 @@ inventory-api/
 - [x] Docker Compose con PostgreSQL
 - [x] Conexión TypeORM (runtime + data-source para CLI)
 - [x] Scripts de migraciones funcionando (probado con `migration:generate`)
-- [ ] **Fase 1 — Dominio base**
-  - [ ] Enum de roles (`common/enums/role.enum.ts`)
-  - [ ] Entidad `User`
+- [x] **Fase 1 — Dominio base**
+  - [x] Enum de roles (`common/enums/role.enum.ts`)
+  - [x] Entidad `User`
   - [x] Entidad `Category`
   - [x] Entidad `Product`
-  - [ ] Entidad de movimiento de inventario
-  - [ ] Generar y correr migración inicial con las 4 entidades
-- [ ] **Fase 2 — Módulo Users**
+  - [x] Entidad de movimiento de inventario
+  - [x] Todos los DTOs (Product, Category, User, InventoryMovement, PaginationQuery)
+  - [x] Los 4 `.module.ts` armados (Users, Categories, Products, Inventory) con `forFeature` y exports
+  - [x] Generar y correr migración inicial con las 4 entidades — ✅ generada exitosamente (`InitSchema`), tras resolver: import circular Product↔InventoryMovement en ESM (solución: `import type` + string en decorador `@ManyToOne('Product', ...)`) y error de columna `imageUrl` (faltaba `type: 'varchar'` explícito para tipos unión con `null`)
+  - ⚠️ Pendiente: correr `npm run migration:run` para aplicarla contra la base de datos
+- [ ] **Orden de trabajo actual: módulo por módulo, empezando por Products**
+  - [x] **Products** (más avanzado — entidad, DTOs y module ya listos) ← COMPLETO
+    - [x] `products.service.ts`
+    - [x] `products.controller.ts`
+  - [ ] **Categories** ← SIGUIENTE
+    - [ ] `categories.service.ts`
+    - [ ] `categories.controller.ts`
+  - [ ] **Users**
+    - [ ] `users.service.ts`
+    - [ ] `users.controller.ts`
+  - [ ] **Inventory**
+    - [ ] `inventory.service.ts`
+    - [ ] `inventory.controller.ts`
+  - [ ] **Auth** (al final, depende de Users)
+- [ ] **Fase 2 — Módulo Users** (detalle en sección de abajo)
   - [ ] CRUD básico de usuarios (sin exponer password)
   - [ ] Hasheo de password (bcrypt) en creación/actualización
 - [ ] **Fase 3 — Módulo Auth**
@@ -125,10 +147,10 @@ inventory-api/
   - [ ] JwtStrategy + JwtAuthGuard
   - [ ] RolesGuard + decorador `@Roles`
   - [ ] Decorador `@CurrentUser`
-- [ ] **Fase 4 — Módulo Categories**
+- [ ] **Fase 4 — Módulo Categories** (detalle en sección de abajo)
   - [ ] CRUD completo
   - [ ] Protección con guards (solo ADMIN puede crear/editar/borrar)
-- [ ] **Fase 5 — Módulo Products**
+- [ ] **Fase 5 — Módulo Products** (detalle en sección de abajo)
   - [ ] CRUD completo
   - [ ] Relación con Category
   - [ ] Filtros (por categoría, por nombre, por rango de precio, etc.)
@@ -159,22 +181,24 @@ inventory-api/
 
 ### `common/` (transversal — se construye progresivamente, no todo de una vez)
 
-- [ ] `enums/role.enum.ts` — `ADMIN`, `USER`
+- [x] `enums/role.enum.ts` — `ADMIN`, `USER`
 - [ ] `decorators/roles.decorator.ts` — `@Roles(Role.ADMIN)`
 - [ ] `decorators/current-user.decorator.ts` — extrae el usuario del `request` (inyectado por JwtStrategy)
 - [ ] `guards/jwt-auth.guard.ts` — extiende `AuthGuard('jwt')`
 - [ ] `guards/roles.guard.ts` — lee metadata de `@Roles` y compara contra el usuario autenticado
 - [ ] `filters/http-exception.filter.ts` — formato uniforme de errores
-- [ ] `dto/pagination-query.dto.ts` — `page`, `limit` reutilizable en varios módulos
+- [x] `dto/pagination-query.dto.ts` — `page` (default 1), `limit` (default 10), reutilizable en varios módulos
+- [x] `utils/postgres-error.util.ts` — `handlePostgresError` traduce códigos de error de Postgres (23505 unique, 23503 FK) a excepciones de Nest; mensaje genérico fijo, no específico por campo
 - ❓ ¿Vas a necesitar un `TransformInterceptor` para envolver todas las respuestas en un formato `{ data, meta }`? (Común en APIs profesionales, pero es una decisión de diseño tuya)
 
 ### `users/`
 
-- [ ] `entities/user.entity.ts`
-  - ❓ Campos: `id`, `email`, `password`, `name`, `role`, `createdAt`, `updatedAt` — ¿algo más? (ej. `isActive`, `phone`)
-  - ❓ ¿`role` como columna `enum` de Postgres o como string con `enum` de TypeScript?
-- [ ] `dto/create-user.dto.ts` — validaciones con `class-validator`
-- [ ] `dto/update-user.dto.ts` — normalmente `PartialType(CreateUserDto)`, excluyendo password (eso va en un endpoint aparte, típicamente)
+- [x] `entities/user.entity.ts`
+  - ✅ Campos: `id`, `email` (único), `password`, `name`, `role` (string, enum de TS `Role`, default `USER`), `isActive` (default true), `createdAt`, `updatedAt`
+  - ✅ `role` es `varchar` simple con enum de TypeScript a nivel de código (no enum de Postgres) — más flexible para agregar roles después
+- [x] `dto/create-user.dto.ts` — `email`, `password` (min 8), `name`; SIN `role` (siempre nace USER) ni `isActive` (siempre nace true)
+- [x] `dto/update-user.dto.ts` — `PartialType(OmitType(CreateUserDto, ['password']))`, para no permitir cambiar password desde aquí
+- [x] `dto/change-password.dto.ts` — `currentPassword` + `newPassword` (min 8), endpoint separado
 - [ ] `users.service.ts`
   - [ ] `create` (hashea password antes de guardar)
   - [ ] `findAll`
@@ -182,9 +206,10 @@ inventory-api/
   - [ ] `findByEmail` (usado por Auth, no expuesto por HTTP)
   - [ ] `update`
   - [ ] `remove`
+  - ⚠️ Excluir `password` explícitamente al devolver datos al cliente (la columna no tiene `select: false`, así que hay que quitarla manualmente o configurarlo)
 - [ ] `users.controller.ts`
-  - ❓ ¿Qué endpoints son solo ADMIN? (ej. listar todos los usuarios, borrar usuarios)
-  - ❓ ¿Un usuario puede ver/editar su propio perfil sin ser ADMIN?
+  - ✅ Un usuario USER puede ver/editar su propio perfil (no solo ADMIN)
+  - ❓ ¿Qué endpoints quedan exclusivos de ADMIN? (ej. listar todos los usuarios, ver/editar/borrar el perfil de otros, cambiar el `role` de un usuario)
 
 ### `auth/`
 
@@ -203,11 +228,10 @@ inventory-api/
 
 ### `categories/`
 
-- [ ] `entities/category.entity.ts`
-  - ❓ Campos: `id`, `name`, `description`, `createdAt`, `updatedAt` — ¿suficiente?
-  - Relación: `OneToMany` con `Product`
-- [ ] `dto/create-category.dto.ts`
-- [ ] `dto/update-category.dto.ts`
+- [x] `entities/category.entity.ts`
+  - ✅ Campos: `id`, `name` (único), `description` (nullable), `products` (relación inversa), `createdAt`, `updatedAt`
+- [x] `dto/create-category.dto.ts`
+- [x] `dto/update-category.dto.ts` — `PartialType(CreateCategoryDto)` vía `@nestjs/swagger`
 - [ ] `categories.service.ts` — CRUD estándar
 - [ ] `categories.controller.ts`
   - ❓ ¿Lectura (`GET`) pública o requiere estar autenticado? ¿Escritura solo ADMIN?
@@ -224,30 +248,36 @@ inventory-api/
   - ✅ `description`, `imageUrl` opcionales
   - ✅ `price`: `IsNumber({ maxDecimalPlaces: 2 })` + `Min(0)`
   - ✅ `categoryId` opcional (`IsUUID`) — no se envía `isActive` (siempre nace `true`)
-- [ ] `dto/update-product.dto.ts`
-- [ ] `dto/product-query.dto.ts` — filtros (`categoryId`, `name`, `minPrice`, `maxPrice`) + paginación (`page`, `limit`)
-  - ❓ ¿`findAll` filtra `isActive: true` por defecto, mostrando inactivos solo con un query param explícito (ej. `?includeInactive=true`, restringido a ADMIN)?
-- [ ] `products.service.ts`
-  - [ ] `create` (resolver `categoryId` → entidad `Category`, o asignar `{ id: categoryId }` directo)
-  - [ ] `findAll` (con filtros + paginación + posible `sort`)
-  - [ ] `findOne`
-  - [ ] `update`
-  - [ ] `remove` (soft-delete: `update(id, { isActive: false })`, expuesto como `DELETE` igual)
-  - [ ] Manejo de conflicto de `sku` duplicado (capturar violación de constraint → `409 Conflict`)
-  - [ ] Cálculo de stock actual por producto (agregado sobre `InventoryMovement`, no cargar todos los movimientos a memoria)
+- [x] `dto/update-product.dto.ts` — `PartialType(CreateProductDto)`
+- [x] `dto/product-query.dto.ts` — extiende `PaginationQueryDto` (común) + filtros: `name` (búsqueda parcial ILIKE), `categoryId`, `minPrice`/`maxPrice`
+  - ✅ `isActive` por defecto en `findAll`: pendiente definir en el service
+- [x] `products.service.ts`
+  - [x] `create` (resuelve categoryId → relación; usa `handlePostgresError` en el catch)
+  - [x] `findAll` (QueryBuilder: filtros name/categoryId/minPrice/maxPrice + paginación + isActive:true por defecto)
+  - [x] `findOne` (con relación category cargada; 404 si no existe)
+  - [x] `update` (usa `preload` + `save`, no `update()` directo — maneja categoryId condicionalmente)
+  - [x] `remove` (soft-delete: `update(id, { isActive: false })`)
+- [x] `products.controller.ts`
+  - ✅ Sin guards por ahora (todo público temporalmente) — marcado con `TODO(auth)` en el código para agregar `JwtAuthGuard`/`RolesGuard`/`@Roles(ADMIN)` en POST/PATCH/DELETE cuando se implemente Auth
+  - ✅ `POST /products`, `GET /products`, `GET /products/:id`, `PATCH /products/:id`, `DELETE /products/:id` (204 No Content)
+  - ✅ `ParseUUIDPipe` en los `:id` para validar formato antes de llegar al service
 - [ ] `products.controller.ts`
   - ❓ ¿Lectura pública, escritura solo ADMIN?
 
 ### `inventory/`
 
-- ❓ Esta es la parte de diseño más abierta del proyecto. Opciones:
-  1. **Simple**: `Product.stock` es la única fuente de verdad; `Inventory` solo expone endpoints para sumar/restar stock (`POST /inventory/entry`, `POST /inventory/exit`), sin guardar historial.
-  2. **Con historial (recomendado para portafolio)**: existe una entidad `InventoryMovement` (`id`, `product`, `type` [ENTRY/EXIT], `quantity`, `reason`, `createdAt`, `user` que hizo el movimiento) — cada movimiento actualiza el `stock` del producto y queda registrado. Esto demuestra mejor manejo de relaciones, transacciones (`QueryRunner`/`DataSource.transaction`) y lógica de negocio real.
-- [ ] `entities/inventory-movement.entity.ts` (si eliges opción 2)
-- [ ] `dto/create-movement.dto.ts`
+- ✅ Diseño elegido: **con historial** — `InventoryMovement` registra cada movimiento y el stock se deriva de él (opción 2 del análisis original)
+- ✅ Tipos de movimiento: `ENTRY`, `EXIT`, `ADJUSTMENT`
+- ✅ Cada movimiento guarda `user` (quién lo hizo, opcional) y `reason` (motivo, texto libre)
+- [ ] `enums/movement-type.enum.ts` — ✅ **completado**: `ENTRY = 'entry'`, `EXIT = 'exit'`, `ADJUSTMENT = 'adjustment'`
+- [x] `entities/inventory-movement.entity.ts`
+  - ✅ Campos: `id`, `type` (`MovementType`), `quantity` (siempre positivo, int), `reason` (nullable), `product` (relación obligatoria), `user` (relación opcional), `createdAt` (sin `updatedAt` — un movimiento no se edita)
+  - ⚠️ **Fix aplicado**: import circular con `Product` en ESM resuelto usando `import type { Product }` + `@ManyToOne('Product', (product: Product) => product.movements)` (string en vez de `() => Product`) — este mismo patrón puede hacer falta en `Category ↔ Product` si aparece el mismo error ahí
+- [x] `dto/create-movement.dto.ts` — `productId` (UUID), `type` (enum), `quantity` (int, min 0 — permite ADJUSTMENT a cero), `reason` opcional; `user` no va en el DTO, se obtiene del JWT
 - [ ] `inventory.service.ts`
   - [ ] `registerMovement` — idealmente dentro de una transacción (actualiza stock + crea registro de forma atómica)
   - [ ] `findHistoryByProduct`
+  - [ ] Cálculo de stock actual — ✅ algoritmo definido: buscar el `ADJUSTMENT` más reciente del producto (si existe) como punto de referencia, luego sumar `ENTRY` y restar `EXIT` posteriores a esa fecha; si no hay ningún `ADJUSTMENT`, se suma/resta sobre todo el historial desde cero
 - [ ] `inventory.controller.ts`
   - ❓ ¿Quién puede registrar movimientos? ¿Solo ADMIN, o también USER?
 
