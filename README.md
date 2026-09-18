@@ -261,7 +261,7 @@ inventory-api/
   - ✅ Sin guards por ahora (todo público temporalmente) — marcado con `TODO(auth)` en el código para agregar `JwtAuthGuard`/`RolesGuard`/`@Roles(ADMIN)` en POST/PATCH/DELETE cuando se implemente Auth
   - ✅ `POST /products`, `GET /products`, `GET /products/:id`, `PATCH /products/:id`, `DELETE /products/:id` (204 No Content)
   - ✅ `ParseUUIDPipe` en los `:id` para validar formato antes de llegar al service
-- [ ] `products.controller.ts`
+- [x] `products.controller.ts`
   - ❓ ¿Lectura pública, escritura solo ADMIN?
 
 ### `inventory/`
