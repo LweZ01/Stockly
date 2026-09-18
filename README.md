@@ -15,9 +15,10 @@ inventory-api/
 │   ├── app.module.ts
 │   │
 │   ├── config/
-│   │   ├── typeorm.config.ts        # opciones de TypeORM para runtime (AppModule)
-│   │   ├── data-source.ts           # DataSource para la CLI de migraciones
-│   │   └── env.validation.ts        # ❓ validación de variables de entorno (opcional)
+│   │   ├── env.ts                   # ✅ config tipada/validada al boot — única fuente de verdad (db + jwt)
+│   │   ├── typeorm.config.ts        # ✅ opciones de TypeORM para runtime (AppModule), lee de env.ts
+│   │   ├── data-source.ts           # ✅ DataSource para CLI de migraciones (dev/test), lee de env.ts
+│   │   └── data-source.prod.ts      # ✅ DataSource para CLI de migraciones (prod), lee de env.ts
 │   │
 │   ├── database/
 │   │   └── migrations/
@@ -44,14 +45,16 @@ inventory-api/
 │   │       └── postgres-error.util.ts
 │   │
 │   ├── auth/
-│   │   ├── auth.module.ts
-│   │   ├── auth.controller.ts
-│   │   ├── auth.service.ts
+│   │   ├── auth.module.ts            # ❓ pendiente
+│   │   ├── auth.controller.ts        # ❓ pendiente
+│   │   ├── auth.service.ts           # ❓ pendiente
+│   │   ├── entities/
+│   │   │   └── refresh-token.entity.ts  # ❓ pendiente — SIGUIENTE PASO
 │   │   ├── strategies/
-│   │   │   └── jwt.strategy.ts
+│   │   │   └── jwt.strategy.ts       # ❓ pendiente
 │   │   └── dto/
-│   │       ├── register.dto.ts
-│   │       └── login.dto.ts
+│   │       ├── register.dto.ts       # ❓ pendiente
+│   │       └── login.dto.ts          # ❓ pendiente
 │   │
 │   ├── users/
 │   │   ├── users.module.ts
@@ -97,11 +100,16 @@ inventory-api/
 │           └── create-movement.dto.ts
 │
 ├── test/
-│   └── (e2e tests)
+│   ├── setup-env.ts           # ✅ carga .env.test antes de correr e2e
+│   └── utils/
+│       └── test-app.ts        # ✅ createTestApp (bootstrap Nest) + truncateAll (limpieza entre tests)
 │
 ├── docker-compose.yml
 ├── .env
+├── .env.test                  # ✅ variables para la DB de test (postgres-test, puerto 5433)
 ├── .env.example
+├── vitest.config.ts           # ✅ unitarios
+├── vitest.config.e2e.ts       # ✅ e2e — fileParallelism: false (clave, ver notas), unplugin-swc
 ├── package.json
 └── tsconfig.json
 ```
@@ -137,36 +145,47 @@ inventory-api/
   - [x] **Inventory** ← COMPLETO (el más complejo: transacciones, locks, cálculo de stock)
     - [x] `inventory.service.ts`
     - [x] `inventory.controller.ts`
-  - [ ] **Auth** (al final, depende de Users) ← SIGUIENTE Y ÚLTIMO MÓDULO DE DOMINIO
-- [ ] **Fase 2 — Módulo Users** (detalle en sección de abajo)
-  - [ ] CRUD básico de usuarios (sin exponer password)
-  - [ ] Hasheo de password (bcrypt) en creación/actualización
-- [ ] **Fase 3 — Módulo Auth**
+  - [ ] **Auth** (al final, depende de Users) ← EN PROGRESO, ÚLTIMO MÓDULO DE DOMINIO
+- [x] **Fase 2 — Módulo Users** ✅ COMPLETA
+  - [x] CRUD básico de usuarios (sin exponer password)
+  - [x] Hasheo de password (bcrypt) en creación/actualización
+- [ ] **Fase 3 — Módulo Auth** ← EN PROGRESO
+  - [x] Decisiones de diseño cerradas: access + refresh token (rotación en cada uso + detección de reuso), refresh token en tabla dedicada `RefreshToken`, entregado como httpOnly cookie, config JWT centralizada en `env.ts`, login rechaza `isActive:false`
+  - [x] `env.ts` creado y centralizado (db + jwt) — `typeorm.config.ts`, `data-source.ts`, `data-source.prod.ts` migrados para usarlo
+  - [ ] Entidad `RefreshToken` (id, tokenHash, userId, expiresAt, revokedAt) ← SIGUIENTE PASO
+  - [ ] Migración para la nueva tabla `refresh_tokens`
   - [ ] Registro
-  - [ ] Login (emisión de JWT)
+  - [ ] Login (emisión de JWT access+refresh)
+  - [ ] Refresh (rotación + detección de reuso → revoca todos los tokens del usuario si se reusa uno revocado)
+  - [ ] Logout (revoca el refresh token actual)
   - [ ] JwtStrategy + JwtAuthGuard
   - [ ] RolesGuard + decorador `@Roles`
   - [ ] Decorador `@CurrentUser`
-- [ ] **Fase 4 — Módulo Categories** (detalle en sección de abajo)
-  - [ ] CRUD completo
-  - [ ] Protección con guards (solo ADMIN puede crear/editar/borrar)
-- [ ] **Fase 5 — Módulo Products** (detalle en sección de abajo)
-  - [ ] CRUD completo
-  - [ ] Relación con Category
-  - [ ] Filtros (por categoría, por nombre, por rango de precio, etc.)
-  - [ ] Paginación
-- [ ] **Fase 6 — Módulo Inventory**
-  - [ ] Registro de movimientos (entrada/salida de stock)
-  - [ ] Actualización de stock del producto asociado
-  - [ ] Consulta de historial de movimientos
+- [x] **Fase 4 — Módulo Categories** ✅ COMPLETA
+  - [x] CRUD completo
+  - [ ] Protección con guards (solo ADMIN puede crear/editar/borrar) — pendiente hasta cerrar Auth
+- [x] **Fase 5 — Módulo Products** ✅ COMPLETA
+  - [x] CRUD completo
+  - [x] Relación con Category
+  - [x] Filtros (por categoría, por nombre, por rango de precio, etc.)
+  - [x] Paginación (con orden determinista por `createdAt`)
+- [x] **Fase 6 — Módulo Inventory** ✅ COMPLETA
+  - [x] Registro de movimientos (entrada/salida de stock)
+  - [x] Actualización de stock del producto asociado
+  - [x] Consulta de historial de movimientos
 - [ ] **Fase 7 — Transversales**
   - [ ] Filtro global de excepciones (`HttpExceptionFilter`)
-  - [ ] `ValidationPipe` global con `whitelist` + `forbidNonWhitelisted`
+  - [x] `ValidationPipe` global con `whitelist` + `forbidNonWhitelisted`
   - [ ] Documentación Swagger completa
   - [ ] Manejo de errores consistente (formato de respuesta de error uniforme)
-- [ ] **Fase 8 — Testing**
-  - [x] Tests unitarios de servicios (Vitest, no Jest — más rápido) — ✅ 26 tests pasando en 5 archivos: products.service.spec.ts (4), categories.service.spec.ts (6), users.service.spec.ts (7), inventory.service.spec.ts (8, mockeando transacción/EntityManager/lock pesimista), app.controller.spec.ts (1)
-  - [ ] Tests e2e de los endpoints principales — pendiente: falta terminar `.env.test`, `test/setup-env.ts` y `test/jest-e2e.json` (setupFiles) para que apunten a la DB de test (`postgres-test`, puerto 5433, ya está en docker-compose.yml)
+- [x] **Fase 8 — Testing** ✅ COMPLETA para los módulos existentes (falta Auth)
+  - [x] Tests unitarios de servicios (Vitest, no Jest) — ✅ 26 tests pasando en 5 archivos: products.service.spec.ts (4), categories.service.spec.ts (6), users.service.spec.ts (7), inventory.service.spec.ts (8, mockeando transacción/EntityManager/lock pesimista), app.controller.spec.ts (1)
+  - [x] Tests e2e de los endpoints principales — ✅ **53 tests pasando en 4 archivos**: products.controller.e2e-spec.ts (14), categories.controller.e2e-spec.ts (13), users.controller.e2e-spec.ts (12), inventory.controller.e2e-spec.ts (11)
+    - Setup: `.env.test` + `test/setup-env.ts` + `vitest.config.e2e.ts` (Vitest, no Jest — usa `unplugin-swc`) + `test/utils/test-app.ts` (bootstrap + TRUNCATE entre tests)
+    - ⚠️ Fix clave: `vitest.config.e2e.ts` necesita `fileParallelism: false` — sin eso, los archivos e2e corren en paralelo contra la misma DB de test y sus TRUNCATE se pisan entre sí (fallos intermitentes)
+    - ⚠️ Fix clave: `typeorm.config.ts` no puede usar el glob `entities: [__dirname + '/../**/*.entity{.ts,.js}']` bajo ESM+Vitest (rompe con SyntaxError) — hay que listar las entidades explícitamente como clases importadas
+  - [ ] Tests e2e de Auth — pendiente hasta cerrar el módulo
+  - [ ] Actualizar e2e existentes para incluir tokens cuando se agreguen guards a Categories/Products/Inventory
 - [ ] **Fase 9 — Dockerización de la app**
   - [ ] Dockerfile para la API
   - [ ] docker-compose con API + DB juntas
@@ -213,18 +232,29 @@ inventory-api/
 
 ### `auth/`
 
+- ✅ Diseño elegido: **access + refresh token con rotación y detección de reuso** (misma arquitectura que el proyecto JWT anterior)
+- ✅ Refresh token vive en tabla dedicada `RefreshToken` (no columna en `User`), guardando el **hash** del token, nunca el token plano
+- ✅ Refresh token se entrega como **httpOnly cookie**; el access token va en el body de la respuesta de login/refresh
+- ✅ Rotación: cada `refresh` revoca el token usado y emite un par nuevo
+- ✅ Detección de reuso: si se intenta usar un refresh token ya revocado, se revocan **todos** los refresh tokens del usuario (señal de robo de token)
+- ✅ Login rechaza usuarios con `isActive: false` (401/403)
+- ✅ Config de JWT centralizada en `config/env.ts` (dos secrets distintos: `JWT_ACCESS_SECRET` y `JWT_REFRESH_SECRET`, nunca el mismo secret para ambos)
+- [ ] `entities/refresh-token.entity.ts` ← **SIGUIENTE PASO**
+  - Campos: `id`, `tokenHash`, `user` (ManyToOne, obligatorio), `expiresAt`, `revokedAt` (nullable, null = activo), `createdAt` (sin `updatedAt`)
+- [ ] Migración para la tabla `refresh_tokens`
 - [ ] `dto/register.dto.ts`
 - [ ] `dto/login.dto.ts`
-- [ ] `strategies/jwt.strategy.ts` — valida el token y retorna el payload/usuario
+- [ ] `strategies/jwt.strategy.ts` — valida el access token y retorna el payload/usuario
 - [ ] `auth.service.ts`
   - [ ] `register` — crea usuario vía `UsersService`
-  - [ ] `login` — valida credenciales, firma JWT
-  - [ ] `validateUser` — usado internamente para comparar password
+  - [ ] `login` — valida credenciales, rechaza `isActive:false`, emite access+refresh, guarda hash del refresh
+  - [ ] `refresh` — valida hash contra DB (no revocado, no expirado), detecta reuso, rota el par de tokens
+  - [ ] `logout` — revoca el refresh token actual
 - [ ] `auth.controller.ts`
   - [ ] `POST /auth/register`
   - [ ] `POST /auth/login`
-  - ❓ ¿Vas a implementar refresh tokens (como en tu proyecto JWT anterior) o solo access token simple para este proyecto?
-- ❓ ¿Dónde va el secret de JWT y el tiempo de expiración — hardcoded en `.env` nomás, o vale la pena un `JwtConfigModule` dedicado?
+  - [ ] `POST /auth/refresh`
+  - [ ] `POST /auth/logout`
 
 ### `categories/`
 
@@ -288,17 +318,19 @@ inventory-api/
 
 ## Preguntas de diseño pendientes (❓ resumen)
 
-Estas son las decisiones que conviene cerrar antes de escribir código de cada módulo. Las iremos resolviendo una por una:
+Todas las decisiones originales ya están cerradas:
 
-1. ¿Necesitas un `TransformInterceptor` para respuestas uniformes, o cada endpoint responde su DTO tal cual?
-2. Modelo de `User`: campos exactos y si `role` es enum de Postgres o string.
-3. Reglas de autorización en `users.controller.ts` (¿el propio usuario edita su perfil?).
-4. Auth: ¿access token simple o access + refresh token (como tu proyecto JWT anterior)?
-5. Dónde vive la config de JWT (secret, expiración).
-6. `categories`: ¿lectura pública o requiere login?
-7. `products`: campos exactos, si `stock` vive en Product o se deriva de Inventory, reglas de acceso.
-8. `inventory`: ¿modelo simple sin historial, o con `InventoryMovement` y transacciones? (recomendado: con historial, por el valor que aporta al portafolio)
-9. `inventory`: reglas de quién puede registrar movimientos.
+1. ✅ `TransformInterceptor`: no se implementó — cada endpoint responde su DTO/entidad tal cual (Products usa `{ data, total, page, limit }` propio en su service, no un interceptor global).
+2. ✅ Modelo de `User`: campos cerrados, `role` es string con enum de TS (no enum de Postgres).
+3. ✅ Autorización en `users.controller.ts`: perfil propio para cualquier autenticado, gestión de otros solo ADMIN (pendiente de aplicar con guards al cerrar Auth).
+4. ✅ Auth: **access + refresh token** con rotación y detección de reuso.
+5. ✅ Config de JWT: centralizada en `config/env.ts`.
+6. ✅ `categories`: lectura pública, escritura ADMIN (pendiente de aplicar con guards).
+7. ✅ `products`: campos cerrados, `stock` se deriva de `Inventory`, lectura pública/escritura ADMIN.
+8. ✅ `inventory`: con historial completo (`InventoryMovement` + transacciones + locks).
+9. ✅ `inventory`: registrar y ver historial restringido a ADMIN (pendiente de aplicar con guards).
+
+**Nuevas preguntas resueltas para Auth** (ver detalle en la sección `auth/` arriba): tipo de token, ubicación del refresh token, rotación, transporte del refresh token, y manejo de usuarios inactivos.
 
 ---
 
@@ -309,3 +341,11 @@ Estas son las decisiones que conviene cerrar antes de escribir código de cada m
 - ORM: **TypeORM** (con migraciones desde el inicio, no `synchronize`).
 - Ya resuelto: conexión a DB, `data-source.ts` para CLI de migraciones, `typeorm-ts-node-esm` requiere `ts-node` como dependencia explícita.
 - Metodología: Claude guía con estructura/TODOs/preguntas de diseño; el código lo escribe Jr.
+
+### Fixes técnicos encontrados (para no repetirlos)
+
+- **ESM + glob de entidades**: `entities: [__dirname + '/../**/*.entity{.ts,.js}']` rompe bajo Vitest+ESM (`SyntaxError: Invalid or unexpected token`, Node intenta cargar `.entity.ts` sin transpilar). Solución: listar las entidades explícitamente como clases importadas en `typeorm.config.ts`. El glob en `data-source.ts`/`data-source.prod.ts` (que corren vía `typeorm-ts-node-esm`, con transpilación) sí funciona bien y no hace falta tocarlo.
+- **Vitest e2e en paralelo contra DB compartida**: sin `fileParallelism: false` en `vitest.config.e2e.ts`, los archivos de test corren en workers distintos pero comparten la misma base de datos — sus `TRUNCATE` se pisan entre sí y producen fallos intermitentes (aserciones que a veces pasan y a veces no).
+- **Scripts npm anidados pierden variables de entorno en Windows**: `dotenv -e .env.test -- npm run migration:run` (que a su vez llama `npm run typeorm -- ...`) puede no propagar las variables inyectadas por `dotenv-cli` al proceso nieto. Solución: colapsar a una sola invocación directa, sin `npm run` intermedio: `dotenv -e .env.test -- typeorm-ts-node-esm -d src/config/data-source.ts migration:run`.
+- **`price` como `decimal` en TypeORM**: se devuelve como `number` en las respuestas de este proyecto (verificar si hay un transformer implícito o conversión de `pg`/`class-transformer` — no asumir automáticamente que viene como `string`, como es el comportamiento típico de TypeORM+Postgres sin transformer).
+- **Paginación sin `ORDER BY` explícito**: Postgres no garantiza orden de inserción en resultados paginados. `products.service.findAll` agrega `.orderBy('product.createdAt', 'ASC')` para resultados deterministas entre páginas.

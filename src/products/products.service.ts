@@ -26,7 +26,7 @@ export class ProductsService {
       return await this.productRepository.save(product);
     } catch (error) {
       handlePostgresError(error);
-      throw error; // inalcanzable, satisface noImplicitReturns
+      throw error;
     }
   }
 
@@ -54,7 +54,10 @@ export class ProductsService {
       qb.andWhere('product.price <= :maxPrice', { maxPrice: query.maxPrice });
     }
 
-    qb.skip((query.page - 1) * query.limit).take(query.limit);
+    qb.orderBy('product.createdAt', 'ASC')
+      .addOrderBy('product.id', 'ASC')
+      .skip((query.page - 1) * query.limit)
+      .take(query.limit);
 
     const [data, total] = await qb.getManyAndCount();
 
