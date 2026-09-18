@@ -1,3 +1,4 @@
+// inventory/dto/create-movement.dto.ts
 import {
   IsEnum,
   IsInt,
@@ -22,4 +23,8 @@ export class CreateMovementDto {
   @IsOptional()
   @IsString()
   reason?: string;
+
+  // TODO(auth): quitar, vendrá de @CurrentUser() cuando exista AuthModule.
+  @IsUUID()
+  userId: string;
 }

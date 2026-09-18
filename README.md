@@ -128,16 +128,16 @@ inventory-api/
   - [x] **Products** (más avanzado — entidad, DTOs y module ya listos) ← COMPLETO
     - [x] `products.service.ts`
     - [x] `products.controller.ts`
-  - [ ] **Categories** ← SIGUIENTE
-    - [ ] `categories.service.ts`
-    - [ ] `categories.controller.ts`
-  - [ ] **Users**
-    - [ ] `users.service.ts`
-    - [ ] `users.controller.ts`
-  - [ ] **Inventory**
-    - [ ] `inventory.service.ts`
-    - [ ] `inventory.controller.ts`
-  - [ ] **Auth** (al final, depende de Users)
+  - [x] **Categories** ← COMPLETO
+    - [x] `categories.service.ts`
+    - [x] `categories.controller.ts`
+  - [x] **Users** ← COMPLETO
+    - [x] `users.service.ts`
+    - [x] `users.controller.ts`
+  - [x] **Inventory** ← COMPLETO (el más complejo: transacciones, locks, cálculo de stock)
+    - [x] `inventory.service.ts`
+    - [x] `inventory.controller.ts`
+  - [ ] **Auth** (al final, depende de Users) ← SIGUIENTE Y ÚLTIMO MÓDULO DE DOMINIO
 - [ ] **Fase 2 — Módulo Users** (detalle en sección de abajo)
   - [ ] CRUD básico de usuarios (sin exponer password)
   - [ ] Hasheo de password (bcrypt) en creación/actualización
@@ -165,8 +165,8 @@ inventory-api/
   - [ ] Documentación Swagger completa
   - [ ] Manejo de errores consistente (formato de respuesta de error uniforme)
 - [ ] **Fase 8 — Testing**
-  - [ ] Tests unitarios de servicios (Jest)
-  - [ ] Tests e2e de los endpoints principales
+  - [x] Tests unitarios de servicios (Vitest, no Jest — más rápido) — ✅ 26 tests pasando en 5 archivos: products.service.spec.ts (4), categories.service.spec.ts (6), users.service.spec.ts (7), inventory.service.spec.ts (8, mockeando transacción/EntityManager/lock pesimista), app.controller.spec.ts (1)
+  - [ ] Tests e2e de los endpoints principales — pendiente: falta terminar `.env.test`, `test/setup-env.ts` y `test/jest-e2e.json` (setupFiles) para que apunten a la DB de test (`postgres-test`, puerto 5433, ya está en docker-compose.yml)
 - [ ] **Fase 9 — Dockerización de la app**
   - [ ] Dockerfile para la API
   - [ ] docker-compose con API + DB juntas
@@ -199,17 +199,17 @@ inventory-api/
 - [x] `dto/create-user.dto.ts` — `email`, `password` (min 8), `name`; SIN `role` (siempre nace USER) ni `isActive` (siempre nace true)
 - [x] `dto/update-user.dto.ts` — `PartialType(OmitType(CreateUserDto, ['password']))`, para no permitir cambiar password desde aquí
 - [x] `dto/change-password.dto.ts` — `currentPassword` + `newPassword` (min 8), endpoint separado
-- [ ] `users.service.ts`
-  - [ ] `create` (hashea password antes de guardar)
-  - [ ] `findAll`
-  - [ ] `findOne` (por id)
-  - [ ] `findByEmail` (usado por Auth, no expuesto por HTTP)
-  - [ ] `update`
-  - [ ] `remove`
-  - ⚠️ Excluir `password` explícitamente al devolver datos al cliente (la columna no tiene `select: false`, así que hay que quitarla manualmente o configurarlo)
-- [ ] `users.controller.ts`
-  - ✅ Un usuario USER puede ver/editar su propio perfil (no solo ADMIN)
-  - ❓ ¿Qué endpoints quedan exclusivos de ADMIN? (ej. listar todos los usuarios, ver/editar/borrar el perfil de otros, cambiar el `role` de un usuario)
+- [x] `users.service.ts`
+  - [x] `create` (hashea password con bcrypt, 12 salt rounds)
+  - [x] `findAll` / `findOne` (no exponen password, gracias a `select: false` en la entidad)
+  - [x] `findByEmail` (usado por Auth; SÍ trae password vía `addSelect`)
+  - [x] `update` (preload + save, sin tocar password)
+  - [x] `changePassword` (compara con bcrypt.compare, luego re-hashea; usa helper privado `findOneWithPassword`)
+  - [x] `remove` (soft-delete: isActive=false)
+- [x] `users.controller.ts`
+  - ✅ Sin POST (creación solo vía `/auth/register`)
+  - ✅ `GET /users`, `GET /users/:id`, `PATCH /users/:id`, `PATCH /users/:id/password`, `DELETE /users/:id` (204)
+  - ✅ `TODO(auth)`: GET/DELETE solo ADMIN; GET/PATCH :id → ADMIN o propio usuario; PATCH /:id/password → solo propio usuario
 
 ### `auth/`
 
@@ -232,9 +232,8 @@ inventory-api/
   - ✅ Campos: `id`, `name` (único), `description` (nullable), `products` (relación inversa), `createdAt`, `updatedAt`
 - [x] `dto/create-category.dto.ts`
 - [x] `dto/update-category.dto.ts` — `PartialType(CreateCategoryDto)` vía `@nestjs/swagger`
-- [ ] `categories.service.ts` — CRUD estándar
-- [ ] `categories.controller.ts`
-  - ❓ ¿Lectura (`GET`) pública o requiere estar autenticado? ¿Escritura solo ADMIN?
+- [x] `categories.service.ts` — CRUD estándar (patrón idéntico a Products); `remove` bloquea con `ConflictException` si la categoría tiene productos asociados (DELETE real, no soft-delete)
+- [x] `categories.controller.ts` — sin guards por ahora (mismo `TODO(auth)`); lectura pública, escritura será solo ADMIN
 
 ### `products/`
 
@@ -261,7 +260,7 @@ inventory-api/
   - ✅ Sin guards por ahora (todo público temporalmente) — marcado con `TODO(auth)` en el código para agregar `JwtAuthGuard`/`RolesGuard`/`@Roles(ADMIN)` en POST/PATCH/DELETE cuando se implemente Auth
   - ✅ `POST /products`, `GET /products`, `GET /products/:id`, `PATCH /products/:id`, `DELETE /products/:id` (204 No Content)
   - ✅ `ParseUUIDPipe` en los `:id` para validar formato antes de llegar al service
-- [x] `products.controller.ts`
+- [ ] `products.controller.ts`
   - ❓ ¿Lectura pública, escritura solo ADMIN?
 
 ### `inventory/`
@@ -274,12 +273,16 @@ inventory-api/
   - ✅ Campos: `id`, `type` (`MovementType`), `quantity` (siempre positivo, int), `reason` (nullable), `product` (relación obligatoria), `user` (relación opcional), `createdAt` (sin `updatedAt` — un movimiento no se edita)
   - ⚠️ **Fix aplicado**: import circular con `Product` en ESM resuelto usando `import type { Product }` + `@ManyToOne('Product', (product: Product) => product.movements)` (string en vez de `() => Product`) — este mismo patrón puede hacer falta en `Category ↔ Product` si aparece el mismo error ahí
 - [x] `dto/create-movement.dto.ts` — `productId` (UUID), `type` (enum), `quantity` (int, min 0 — permite ADJUSTMENT a cero), `reason` opcional; `user` no va en el DTO, se obtiene del JWT
-- [ ] `inventory.service.ts`
-  - [ ] `registerMovement` — idealmente dentro de una transacción (actualiza stock + crea registro de forma atómica)
-  - [ ] `findHistoryByProduct`
-  - [ ] Cálculo de stock actual — ✅ algoritmo definido: buscar el `ADJUSTMENT` más reciente del producto (si existe) como punto de referencia, luego sumar `ENTRY` y restar `EXIT` posteriores a esa fecha; si no hay ningún `ADJUSTMENT`, se suma/resta sobre todo el historial desde cero
-- [ ] `inventory.controller.ts`
-  - ❓ ¿Quién puede registrar movimientos? ¿Solo ADMIN, o también USER?
+  - ⚠️ Ajuste temporal: se agregó `userId` (UUID) al DTO mientras no existe Auth/@CurrentUser — marcado con TODO(auth) para quitar después
+- [x] `inventory.service.ts`
+  - [x] `getCurrentStock` — algoritmo con ADJUSTMENT como punto de referencia (SUM condicional con CASE WHEN vía QueryBuilder + getRawOne); usa `createdAt >=` + `id != adjustmentId` para evitar ambigüedad de timestamps iguales
+  - [x] `registerMovement` — transacción completa (`dataSource.transaction`) con lock pesimista (`pessimistic_write`) sobre Product, validación de stock insuficiente para EXIT
+  - [x] `findHistoryByProduct` — simple, sin paginar por ahora (posible mejora futura)
+  - ⚠️ No inyecta ProductsService — usa QueryBuilder directo sobre Product dentro de la transacción (necesario para el lock)
+- [x] `inventory.controller.ts`
+  - ✅ `POST /inventory/movements`, `GET /inventory/products/:productId/stock`, `GET /inventory/products/:productId/movements`
+  - ⚠️ Temporal: `userId` viene en el body del DTO (create-movement.dto) hasta que exista `@CurrentUser()` — TODO(auth) marcado para quitarlo
+  - ✅ `TODO(auth)`: todo el controller quedará restringido a ADMIN
 
 ---
 
