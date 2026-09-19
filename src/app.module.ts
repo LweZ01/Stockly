@@ -9,8 +9,8 @@ import { UsersModule } from './users/users.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
 import { ProductsModule } from './products/products.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
+import { AuthModule } from './auth/auth.module.js';
 
-// TODO(auth): agregar AuthModule cuando exista.
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -19,6 +19,7 @@ import { InventoryModule } from './inventory/inventory.module.js';
     CategoriesModule,
     ProductsModule,
     InventoryModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

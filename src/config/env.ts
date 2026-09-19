@@ -1,5 +1,6 @@
 // src/config/env.ts
 import 'dotenv/config';
+import type { StringValue } from 'ms';
 
 interface DbConfig {
   host: string;
@@ -11,9 +12,9 @@ interface DbConfig {
 
 interface JwtConfig {
   accessSecret: string;
-  accessExpiresIn: string;
+  accessExpiresIn: StringValue;
   refreshSecret: string;
-  refreshExpiresIn: string;
+  refreshExpiresIn: StringValue;
 }
 
 interface AppConfig {
@@ -77,9 +78,11 @@ function loadConfig(): AppConfig {
     },
     jwt: {
       accessSecret: required('JWT_ACCESS_SECRET'),
-      accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN ?? '15m',
+      accessExpiresIn: (process.env.JWT_ACCESS_EXPIRES_IN ??
+        '15m') as StringValue,
       refreshSecret: required('JWT_REFRESH_SECRET'),
-      refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
+      refreshExpiresIn: (process.env.JWT_REFRESH_EXPIRES_IN ??
+        '7d') as StringValue,
     },
   };
 

@@ -1,3 +1,4 @@
+// src/users/users.service.ts
 import {
   Injectable,
   NotFoundException,
@@ -50,6 +51,10 @@ export class UsersService {
     }
 
     return user;
+  }
+
+  findById(id: string): Promise<User | null> {
+    return this.userRepository.findOneBy({ id });
   }
 
   findByEmail(email: string): Promise<User | null> {

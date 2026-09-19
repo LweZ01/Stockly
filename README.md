@@ -45,16 +45,16 @@ inventory-api/
 │   │       └── postgres-error.util.ts
 │   │
 │   ├── auth/
-│   │   ├── auth.module.ts            # ❓ pendiente
-│   │   ├── auth.controller.ts        # ❓ pendiente
-│   │   ├── auth.service.ts           # ❓ pendiente
+│   │   ├── auth.module.ts            # ✅ completo
+│   │   ├── auth.controller.ts        # ✅ completo (register/login/refresh/logout)
+│   │   ├── auth.service.ts           # ✅ completo
 │   │   ├── entities/
-│   │   │   └── refresh-token.entity.ts  # ❓ pendiente — SIGUIENTE PASO
+│   │   │   └── refresh-token.entity.ts  # ✅ completo
 │   │   ├── strategies/
-│   │   │   └── jwt.strategy.ts       # ❓ pendiente
+│   │   │   └── jwt.strategy.ts       # ✅ completo
 │   │   └── dto/
-│   │       ├── register.dto.ts       # ❓ pendiente
-│   │       └── login.dto.ts          # ❓ pendiente
+│   │       ├── register.dto.ts       # ✅ completo
+│   │       └── login.dto.ts          # ✅ completo
 │   │
 │   ├── users/
 │   │   ├── users.module.ts
@@ -149,18 +149,20 @@ inventory-api/
 - [x] **Fase 2 — Módulo Users** ✅ COMPLETA
   - [x] CRUD básico de usuarios (sin exponer password)
   - [x] Hasheo de password (bcrypt) en creación/actualización
-- [ ] **Fase 3 — Módulo Auth** ← EN PROGRESO
+- [x] **Fase 3 — Módulo Auth** ✅ COMPLETA
   - [x] Decisiones de diseño cerradas: access + refresh token (rotación en cada uso + detección de reuso), refresh token en tabla dedicada `RefreshToken`, entregado como httpOnly cookie, config JWT centralizada en `env.ts`, login rechaza `isActive:false`
   - [x] `env.ts` creado y centralizado (db + jwt) — `typeorm.config.ts`, `data-source.ts`, `data-source.prod.ts` migrados para usarlo
-  - [ ] Entidad `RefreshToken` (id, tokenHash, userId, expiresAt, revokedAt) ← SIGUIENTE PASO
-  - [ ] Migración para la nueva tabla `refresh_tokens`
-  - [ ] Registro
-  - [ ] Login (emisión de JWT access+refresh)
-  - [ ] Refresh (rotación + detección de reuso → revoca todos los tokens del usuario si se reusa uno revocado)
-  - [ ] Logout (revoca el refresh token actual)
-  - [ ] JwtStrategy + JwtAuthGuard
-  - [ ] RolesGuard + decorador `@Roles`
-  - [ ] Decorador `@CurrentUser`
+  - [x] Entidad `RefreshToken` (id, tokenHash, user con `@JoinColumn`, expiresAt, revokedAt) + migración `AddRefreshTokens` aplicada en dev y test
+  - [x] Registro (`POST /auth/register`)
+  - [x] Login (`POST /auth/login` — emite JWT access+refresh, setea cookie httpOnly)
+  - [x] Refresh (`POST /auth/refresh` — rotación + detección de reuso → revoca todos los tokens del usuario si se reusa uno revocado)
+  - [x] Logout (`POST /auth/logout` — revoca el refresh token actual)
+  - [x] `JwtStrategy` + `JwtAuthGuard`
+  - [x] `RolesGuard` + decorador `@Roles`
+  - [x] Decorador `@CurrentUser`
+  - [x] `main.ts` actualizado: `cookie-parser` registrado + `ValidationPipe` global (antes solo estaba en los tests)
+  - [x] Tests e2e de Auth (`auth.controller.e2e-spec.ts`) — ✅ **11 tests pasando**
+  - [ ] Aplicar `JwtAuthGuard`/`RolesGuard` a Categories/Products/Users/Inventory (revisar cada `TODO(auth)` marcado en sus controllers) ← ÚLTIMO PASO DEL PROYECTO
 - [x] **Fase 4 — Módulo Categories** ✅ COMPLETA
   - [x] CRUD completo
   - [ ] Protección con guards (solo ADMIN puede crear/editar/borrar) — pendiente hasta cerrar Auth
@@ -178,14 +180,15 @@ inventory-api/
   - [x] `ValidationPipe` global con `whitelist` + `forbidNonWhitelisted`
   - [ ] Documentación Swagger completa
   - [ ] Manejo de errores consistente (formato de respuesta de error uniforme)
-- [x] **Fase 8 — Testing** ✅ COMPLETA para los módulos existentes (falta Auth)
+- [ ] **Fase 8 — Testing** — módulos de dominio + Auth completos, falta actualizar e2e existentes tras aplicar guards
   - [x] Tests unitarios de servicios (Vitest, no Jest) — ✅ 26 tests pasando en 5 archivos: products.service.spec.ts (4), categories.service.spec.ts (6), users.service.spec.ts (7), inventory.service.spec.ts (8, mockeando transacción/EntityManager/lock pesimista), app.controller.spec.ts (1)
-  - [x] Tests e2e de los endpoints principales — ✅ **53 tests pasando en 4 archivos**: products.controller.e2e-spec.ts (14), categories.controller.e2e-spec.ts (13), users.controller.e2e-spec.ts (12), inventory.controller.e2e-spec.ts (11)
+  - [x] Tests e2e de los endpoints principales — ✅ **64 tests pasando en 5 archivos**: products.controller.e2e-spec.ts (14), categories.controller.e2e-spec.ts (13), users.controller.e2e-spec.ts (12), inventory.controller.e2e-spec.ts (14), auth.controller.e2e-spec.ts (11)
     - Setup: `.env.test` + `test/setup-env.ts` + `vitest.config.e2e.ts` (Vitest, no Jest — usa `unplugin-swc`) + `test/utils/test-app.ts` (bootstrap + TRUNCATE entre tests)
     - ⚠️ Fix clave: `vitest.config.e2e.ts` necesita `fileParallelism: false` — sin eso, los archivos e2e corren en paralelo contra la misma DB de test y sus TRUNCATE se pisan entre sí (fallos intermitentes)
     - ⚠️ Fix clave: `typeorm.config.ts` no puede usar el glob `entities: [__dirname + '/../**/*.entity{.ts,.js}']` bajo ESM+Vitest (rompe con SyntaxError) — hay que listar las entidades explícitamente como clases importadas
-  - [ ] Tests e2e de Auth — pendiente hasta cerrar el módulo
-  - [ ] Actualizar e2e existentes para incluir tokens cuando se agreguen guards a Categories/Products/Inventory
+    - ⚠️ Fix clave (Auth): `test/utils/test-app.ts` bootstrapea la app de forma independiente a `main.ts` — cualquier middleware agregado a `main.ts` (como `cookie-parser`) debe replicarse manualmente ahí también, o los tests fallan silenciosamente (ej: cookies nunca se parsean, `req.cookies` queda `undefined`)
+    - Nota de diseño: en el test de rotación de `/auth/refresh`, no se compara el `accessToken` viejo vs el nuevo por igualdad estricta — un JWT firma por segundo (`iat` con resolución de segundos), así que dos tokens generados en el mismo segundo con el mismo payload son idénticos byte a byte. La prueba real de rotación es que el refresh token (cookie) cambia, no el access token.
+  - [ ] Actualizar e2e existentes (Products/Categories/Users/Inventory) para incluir tokens de auth una vez que se apliquen los guards
 - [ ] **Fase 9 — Dockerización de la app**
   - [ ] Dockerfile para la API
   - [ ] docker-compose con API + DB juntas
@@ -201,10 +204,10 @@ inventory-api/
 ### `common/` (transversal — se construye progresivamente, no todo de una vez)
 
 - [x] `enums/role.enum.ts` — `ADMIN`, `USER`
-- [ ] `decorators/roles.decorator.ts` — `@Roles(Role.ADMIN)`
-- [ ] `decorators/current-user.decorator.ts` — extrae el usuario del `request` (inyectado por JwtStrategy)
-- [ ] `guards/jwt-auth.guard.ts` — extiende `AuthGuard('jwt')`
-- [ ] `guards/roles.guard.ts` — lee metadata de `@Roles` y compara contra el usuario autenticado
+- [x] `decorators/roles.decorator.ts` — `@Roles(Role.ADMIN)`
+- [x] `decorators/current-user.decorator.ts` — extrae el usuario del `request` (inyectado por JwtStrategy)
+- [x] `guards/jwt-auth.guard.ts` — extiende `AuthGuard('jwt')`
+- [x] `guards/roles.guard.ts` — lee metadata de `@Roles` y compara contra el usuario autenticado (usa `Reflector.getAllAndOverride`)
 - [ ] `filters/http-exception.filter.ts` — formato uniforme de errores
 - [x] `dto/pagination-query.dto.ts` — `page` (default 1), `limit` (default 10), reutilizable en varios módulos
 - [x] `utils/postgres-error.util.ts` — `handlePostgresError` traduce códigos de error de Postgres (23505 unique, 23503 FK) a excepciones de Nest; mensaje genérico fijo, no específico por campo
@@ -239,22 +242,30 @@ inventory-api/
 - ✅ Detección de reuso: si se intenta usar un refresh token ya revocado, se revocan **todos** los refresh tokens del usuario (señal de robo de token)
 - ✅ Login rechaza usuarios con `isActive: false` (401/403)
 - ✅ Config de JWT centralizada en `config/env.ts` (dos secrets distintos: `JWT_ACCESS_SECRET` y `JWT_REFRESH_SECRET`, nunca el mismo secret para ambos)
-- [ ] `entities/refresh-token.entity.ts` ← **SIGUIENTE PASO**
-  - Campos: `id`, `tokenHash`, `user` (ManyToOne, obligatorio), `expiresAt`, `revokedAt` (nullable, null = activo), `createdAt` (sin `updatedAt`)
-- [ ] Migración para la tabla `refresh_tokens`
-- [ ] `dto/register.dto.ts`
-- [ ] `dto/login.dto.ts`
-- [ ] `strategies/jwt.strategy.ts` — valida el access token y retorna el payload/usuario
-- [ ] `auth.service.ts`
-  - [ ] `register` — crea usuario vía `UsersService`
-  - [ ] `login` — valida credenciales, rechaza `isActive:false`, emite access+refresh, guarda hash del refresh
-  - [ ] `refresh` — valida hash contra DB (no revocado, no expirado), detecta reuso, rota el par de tokens
-  - [ ] `logout` — revoca el refresh token actual
-- [ ] `auth.controller.ts`
-  - [ ] `POST /auth/register`
-  - [ ] `POST /auth/login`
-  - [ ] `POST /auth/refresh`
-  - [ ] `POST /auth/logout`
+- [x] `entities/refresh-token.entity.ts`
+  - Campos: `id`, `tokenHash` (con `@Index({unique:true})`), `user` (ManyToOne, obligatorio, `onDelete: 'CASCADE'`), `userId` (columna explícita además de la relación), `expiresAt`, `revokedAt` (nullable, null = activo), `createdAt` (sin `updatedAt`) — todas las fechas como `timestamptz`
+- [x] Migración `AddRefreshTokens` — aplicada en dev y test
+- [x] `dto/register.dto.ts`
+- [x] `dto/login.dto.ts`
+- [x] `strategies/jwt.strategy.ts` — valida el access token, usa `UsersService.findById` (sin lanzar excepción si no existe) y retorna el usuario o `UnauthorizedException`
+- [x] `auth.service.ts`
+  - [x] `register` — crea usuario vía `UsersService`
+  - [x] `login` — valida credenciales, rechaza `isActive:false`, emite access+refresh, guarda hash del refresh (SHA-256 de un token aleatorio de 64 bytes, no un JWT)
+  - [x] `refreshTokens` — valida hash contra DB (no revocado, no expirado), detecta reuso (revoca TODOS los tokens del usuario si el token ya estaba revocado), rota el par de tokens
+  - [x] `logout` — revoca el refresh token actual
+  - ⚠️ Deuda técnica documentada: race condition entre el `findOne` y el `UPDATE` de rotación en `refreshTokens` — aceptable para el volumen de tráfico de este proyecto (sin necesidad de refactor a transacción + `UPDATE ... RETURNING` por ahora)
+- [x] `auth.controller.ts`
+  - [x] `POST /auth/register` (201, excluye `password` de la respuesta)
+  - [x] `POST /auth/login` (200, cookie httpOnly + `{ accessToken, user }` sin password)
+  - [x] `POST /auth/refresh` (200, lee cookie, rota, re-setea cookie)
+  - [x] `POST /auth/logout` (204, revoca + `clearCookie`)
+  - Usa `@Res({ passthrough: true })` para combinar manejo de cookies con `return` normal
+
+### Notas técnicas de compilación (Auth)
+
+- `isolatedModules` + `emitDecoratorMetadata` en `tsconfig.json` exige `import type` para tipos usados en posiciones de parámetro decoradas — por eso `Response`/`Request` de `express` se importan como `import type { Response, Request } from 'express';` en `auth.controller.ts`.
+- El tipo `StringValue` de la librería `ms` está centralizado en `env.ts` (`JwtConfig.accessExpiresIn`/`refreshExpiresIn` tipados como `StringValue`, cast solo ahí con `as StringValue`) — evita casts dispersos en `auth.service.ts`.
+- `main.ts` actualizado con `app.use(cookieParser())` y `app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))` — antes el `ValidationPipe` solo estaba en los tests e2e (`test-app.ts`), no en runtime real.
 
 ### `categories/`
 
