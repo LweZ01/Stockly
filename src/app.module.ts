@@ -15,11 +15,11 @@ import { AuthModule } from './auth/auth.module.js';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({ useFactory: typeOrmConfig }),
+    AuthModule,
     UsersModule,
     CategoriesModule,
     ProductsModule,
     InventoryModule,
-    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

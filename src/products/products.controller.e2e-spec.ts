@@ -2,11 +2,18 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
-import { createTestApp, truncateAll } from '../../test/utils/test-app.js';
+import {
+  createTestApp,
+  truncateAll,
+  createAdminAndLogin,
+  createUserAndLogin,
+} from '../../test/utils/test-app.js';
 
 describe('ProductsController (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
+  let accessToken: string;
+  let userToken: string;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -15,6 +22,8 @@ describe('ProductsController (e2e)', () => {
 
   beforeEach(async () => {
     await truncateAll(dataSource);
+    ({ accessToken } = await createAdminAndLogin(app));
+    ({ accessToken: userToken } = await createUserAndLogin(app));
   });
 
   afterAll(async () => {
@@ -31,6 +40,7 @@ describe('ProductsController (e2e)', () => {
     it('crea un producto válido', async () => {
       const res = await request(app.getHttpServer())
         .post('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send(baseProduct)
         .expect(201);
 
@@ -46,11 +56,13 @@ describe('ProductsController (e2e)', () => {
     it('rechaza sku duplicado (409)', async () => {
       await request(app.getHttpServer())
         .post('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send(baseProduct)
         .expect(201);
 
       await request(app.getHttpServer())
         .post('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send(baseProduct)
         .expect(409);
     });
@@ -58,11 +70,13 @@ describe('ProductsController (e2e)', () => {
     it('rechaza payload inválido (400) por campos extra o faltantes', async () => {
       await request(app.getHttpServer())
         .post('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send({ sku: 'X' })
         .expect(400);
 
       await request(app.getHttpServer())
         .post('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send({ ...baseProduct, extraField: 'no debería pasar' })
         .expect(400);
     });
@@ -70,6 +84,7 @@ describe('ProductsController (e2e)', () => {
     it('rechaza price negativo (400)', async () => {
       await request(app.getHttpServer())
         .post('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send({ ...baseProduct, price: -5 })
         .expect(400);
     });
@@ -79,16 +94,19 @@ describe('ProductsController (e2e)', () => {
     it('lista solo productos activos por defecto', async () => {
       const active = await request(app.getHttpServer())
         .post('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send(baseProduct)
         .expect(201);
 
       const other = await request(app.getHttpServer())
         .post('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send({ ...baseProduct, sku: 'SKU-002', name: 'Otro' })
         .expect(201);
 
       await request(app.getHttpServer())
         .delete(`/products/${other.body.id}`)
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(204);
 
       const res = await request(app.getHttpServer())
@@ -100,13 +118,23 @@ describe('ProductsController (e2e)', () => {
       expect(ids).not.toContain(other.body.id);
     });
 
+    it('es público (no requiere token)', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/products')
+        .expect(200);
+
+      expect(Array.isArray(res.body.data)).toBe(true);
+    });
+
     it('filtra por nombre (ILIKE parcial)', async () => {
       await request(app.getHttpServer())
         .post('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send({ ...baseProduct, name: 'Teclado mecánico' })
         .expect(201);
       await request(app.getHttpServer())
         .post('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send({ ...baseProduct, sku: 'SKU-003', name: 'Mouse inalámbrico' })
         .expect(201);
 
@@ -121,10 +149,12 @@ describe('ProductsController (e2e)', () => {
     it('filtra por rango de precio', async () => {
       await request(app.getHttpServer())
         .post('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send({ ...baseProduct, price: 10 })
         .expect(201);
       await request(app.getHttpServer())
         .post('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send({ ...baseProduct, sku: 'SKU-004', price: 100 })
         .expect(201);
 
@@ -140,6 +170,7 @@ describe('ProductsController (e2e)', () => {
       for (let i = 0; i < 3; i++) {
         await request(app.getHttpServer())
           .post('/products')
+          .set('Authorization', `Bearer ${accessToken}`)
           .send({ ...baseProduct, sku: `SKU-PAG-${i}` })
           .expect(201);
       }
@@ -161,6 +192,7 @@ describe('ProductsController (e2e)', () => {
       for (let i = 0; i < 3; i++) {
         await request(app.getHttpServer())
           .post('/products')
+          .set('Authorization', `Bearer ${accessToken}`)
           .send({ ...baseProduct, sku: `SKU-PAG-${i}` })
           .expect(201);
       }
@@ -195,11 +227,13 @@ describe('ProductsController (e2e)', () => {
     it('devuelve el producto con su categoría cargada', async () => {
       const category = await request(app.getHttpServer())
         .post('/categories')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send({ name: 'Electrónica' })
         .expect(201);
 
       const product = await request(app.getHttpServer())
         .post('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send({ ...baseProduct, categoryId: category.body.id })
         .expect(201);
 
@@ -215,11 +249,13 @@ describe('ProductsController (e2e)', () => {
     it('actualiza campos parciales', async () => {
       const product = await request(app.getHttpServer())
         .post('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send(baseProduct)
         .expect(201);
 
       const res = await request(app.getHttpServer())
         .patch(`/products/${product.body.id}`)
+        .set('Authorization', `Bearer ${accessToken}`)
         .send({ name: 'Nombre actualizado' })
         .expect(200);
 
@@ -232,17 +268,64 @@ describe('ProductsController (e2e)', () => {
     it('hace soft-delete (isActive=false), no borra la fila', async () => {
       const product = await request(app.getHttpServer())
         .post('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send(baseProduct)
         .expect(201);
 
       await request(app.getHttpServer())
         .delete(`/products/${product.body.id}`)
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(204);
 
       const res = await request(app.getHttpServer())
         .get(`/products/${product.body.id}`)
         .expect(200);
       expect(res.body.isActive).toBe(false);
+    });
+  });
+
+  describe('Autorización', () => {
+    it('rechaza (401) POST sin token', async () => {
+      await request(app.getHttpServer())
+        .post('/products')
+        .send(baseProduct)
+        .expect(401);
+    });
+
+    it('rechaza (401) PATCH sin token', async () => {
+      await request(app.getHttpServer())
+        .patch('/products/00000000-0000-0000-0000-000000000000')
+        .send({ name: 'x' })
+        .expect(401);
+    });
+
+    it('rechaza (401) DELETE sin token', async () => {
+      await request(app.getHttpServer())
+        .delete('/products/00000000-0000-0000-0000-000000000000')
+        .expect(401);
+    });
+
+    it('rechaza (403) POST con token de USER (no ADMIN)', async () => {
+      await request(app.getHttpServer())
+        .post('/products')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send(baseProduct)
+        .expect(403);
+    });
+
+    it('rechaza (403) PATCH con token de USER (no ADMIN)', async () => {
+      await request(app.getHttpServer())
+        .patch('/products/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ name: 'x' })
+        .expect(403);
+    });
+
+    it('rechaza (403) DELETE con token de USER (no ADMIN)', async () => {
+      await request(app.getHttpServer())
+        .delete('/products/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(403);
     });
   });
 });

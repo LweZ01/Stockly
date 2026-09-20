@@ -2,32 +2,31 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
-import { createTestApp, truncateAll } from '../../test/utils/test-app.js';
-import { UsersService } from '../users/users.service.js';
+import {
+  createTestApp,
+  truncateAll,
+  createAdminAndLogin,
+  createUserAndLogin,
+} from '../../test/utils/test-app.js';
 import { ProductsService } from '../products/products.service.js';
 
 describe('InventoryController (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
-  let usersService: UsersService;
   let productsService: ProductsService;
-  let userId: string;
+  let accessToken: string;
+  let userToken: string;
 
   beforeAll(async () => {
     app = await createTestApp();
     dataSource = app.get(DataSource);
-    usersService = app.get(UsersService);
     productsService = app.get(ProductsService);
   });
 
   beforeEach(async () => {
     await truncateAll(dataSource);
-    const user = await usersService.create({
-      email: 'almacen@example.com',
-      password: 'password123',
-      name: 'Encargado de Almacén',
-    });
-    userId = user.id;
+    ({ accessToken } = await createAdminAndLogin(app));
+    ({ accessToken: userToken } = await createUserAndLogin(app));
   });
 
   afterAll(async () => {
@@ -50,7 +49,8 @@ describe('InventoryController (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .post('/inventory/movements')
-        .send({ productId: product.id, type: 'entry', quantity: 50, userId })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ productId: product.id, type: 'entry', quantity: 50 })
         .expect(201);
 
       expect(res.body.type).toBe('entry');
@@ -58,6 +58,7 @@ describe('InventoryController (e2e)', () => {
 
       const stockRes = await request(app.getHttpServer())
         .get(`/inventory/products/${product.id}/stock`)
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
       expect(stockRes.body.stock).toBe(50);
@@ -68,16 +69,19 @@ describe('InventoryController (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/inventory/movements')
-        .send({ productId: product.id, type: 'entry', quantity: 100, userId })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ productId: product.id, type: 'entry', quantity: 100 })
         .expect(201);
 
       await request(app.getHttpServer())
         .post('/inventory/movements')
-        .send({ productId: product.id, type: 'exit', quantity: 30, userId })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ productId: product.id, type: 'exit', quantity: 30 })
         .expect(201);
 
       const stockRes = await request(app.getHttpServer())
         .get(`/inventory/products/${product.id}/stock`)
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
       expect(stockRes.body.stock).toBe(70);
@@ -88,17 +92,19 @@ describe('InventoryController (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/inventory/movements')
-        .send({ productId: product.id, type: 'entry', quantity: 10, userId })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ productId: product.id, type: 'entry', quantity: 10 })
         .expect(201);
 
       await request(app.getHttpServer())
         .post('/inventory/movements')
-        .send({ productId: product.id, type: 'exit', quantity: 20, userId })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ productId: product.id, type: 'exit', quantity: 20 })
         .expect(400);
 
-      // el stock no debe haber cambiado tras el intento fallido
       const stockRes = await request(app.getHttpServer())
         .get(`/inventory/products/${product.id}/stock`)
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
       expect(stockRes.body.stock).toBe(10);
     });
@@ -108,21 +114,19 @@ describe('InventoryController (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/inventory/movements')
-        .send({ productId: product.id, type: 'entry', quantity: 40, userId })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ productId: product.id, type: 'entry', quantity: 40 })
         .expect(201);
 
       await request(app.getHttpServer())
         .post('/inventory/movements')
-        .send({
-          productId: product.id,
-          type: 'adjustment',
-          quantity: 0,
-          userId,
-        })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ productId: product.id, type: 'adjustment', quantity: 0 })
         .expect(201);
 
       const stockRes = await request(app.getHttpServer())
         .get(`/inventory/products/${product.id}/stock`)
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
       expect(stockRes.body.stock).toBe(0);
     });
@@ -132,28 +136,27 @@ describe('InventoryController (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/inventory/movements')
-        .send({ productId: product.id, type: 'entry', quantity: 999, userId })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ productId: product.id, type: 'entry', quantity: 999 })
         .expect(201);
 
       await request(app.getHttpServer())
         .post('/inventory/movements')
-        .send({
-          productId: product.id,
-          type: 'adjustment',
-          quantity: 20,
-          userId,
-        })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ productId: product.id, type: 'adjustment', quantity: 20 })
         .expect(201);
 
       await request(app.getHttpServer())
         .post('/inventory/movements')
-        .send({ productId: product.id, type: 'entry', quantity: 5, userId })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ productId: product.id, type: 'entry', quantity: 5 })
         .expect(201);
 
       const stockRes = await request(app.getHttpServer())
         .get(`/inventory/products/${product.id}/stock`)
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
-      expect(stockRes.body.stock).toBe(25); // 20 (ajuste) + 5 (entry posterior), ignora el entry de 999 previo
+      expect(stockRes.body.stock).toBe(25);
     });
 
     it('rechaza (400) ENTRY/EXIT con quantity 0', async () => {
@@ -161,12 +164,14 @@ describe('InventoryController (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/inventory/movements')
-        .send({ productId: product.id, type: 'entry', quantity: 0, userId })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ productId: product.id, type: 'entry', quantity: 0 })
         .expect(400);
 
       await request(app.getHttpServer())
         .post('/inventory/movements')
-        .send({ productId: product.id, type: 'exit', quantity: 0, userId })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ productId: product.id, type: 'exit', quantity: 0 })
         .expect(400);
     });
 
@@ -175,18 +180,19 @@ describe('InventoryController (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/inventory/movements')
-        .send({ productId: product.id, type: 'entry', quantity: -5, userId })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ productId: product.id, type: 'entry', quantity: -5 })
         .expect(400);
     });
 
     it('rechaza (404) si el producto no existe', async () => {
       await request(app.getHttpServer())
         .post('/inventory/movements')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send({
           productId: '00000000-0000-0000-0000-000000000000',
           type: 'entry',
           quantity: 10,
-          userId,
         })
         .expect(404);
     });
@@ -196,12 +202,8 @@ describe('InventoryController (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/inventory/movements')
-        .send({
-          productId: product.id,
-          type: 'invalid-type',
-          quantity: 10,
-          userId,
-        })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ productId: product.id, type: 'invalid-type', quantity: 10 })
         .expect(400);
     });
 
@@ -210,12 +212,12 @@ describe('InventoryController (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .post('/inventory/movements')
+        .set('Authorization', `Bearer ${accessToken}`)
         .send({
           productId: product.id,
           type: 'entry',
           quantity: 10,
           reason: 'Reposición inicial',
-          userId,
         })
         .expect(201);
 
@@ -229,6 +231,7 @@ describe('InventoryController (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .get(`/inventory/products/${product.id}/stock`)
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
       expect(res.body).toEqual({ productId: product.id, stock: 0 });
@@ -237,6 +240,7 @@ describe('InventoryController (e2e)', () => {
     it('devuelve 400 si el UUID del producto es inválido', async () => {
       await request(app.getHttpServer())
         .get('/inventory/products/no-es-uuid/stock')
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(400);
     });
   });
@@ -247,19 +251,22 @@ describe('InventoryController (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/inventory/movements')
-        .send({ productId: product.id, type: 'entry', quantity: 10, userId })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ productId: product.id, type: 'entry', quantity: 10 })
         .expect(201);
       await request(app.getHttpServer())
         .post('/inventory/movements')
-        .send({ productId: product.id, type: 'entry', quantity: 20, userId })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ productId: product.id, type: 'entry', quantity: 20 })
         .expect(201);
 
       const res = await request(app.getHttpServer())
         .get(`/inventory/products/${product.id}/movements`)
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
       expect(res.body).toHaveLength(2);
-      expect(res.body[0].quantity).toBe(20); // el más reciente primero
+      expect(res.body[0].quantity).toBe(20);
       expect(res.body[1].quantity).toBe(10);
     });
 
@@ -268,9 +275,44 @@ describe('InventoryController (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .get(`/inventory/products/${product.id}/movements`)
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
       expect(res.body).toEqual([]);
+    });
+  });
+
+  describe('Autorización', () => {
+    it('rechaza (401) POST movements sin token', async () => {
+      const product = await createProduct();
+      await request(app.getHttpServer())
+        .post('/inventory/movements')
+        .send({ productId: product.id, type: 'entry', quantity: 10 })
+        .expect(401);
+    });
+
+    it('rechaza (401) GET stock sin token', async () => {
+      const product = await createProduct();
+      await request(app.getHttpServer())
+        .get(`/inventory/products/${product.id}/stock`)
+        .expect(401);
+    });
+
+    it('rechaza (403) POST movements con token de USER (no ADMIN)', async () => {
+      const product = await createProduct();
+      await request(app.getHttpServer())
+        .post('/inventory/movements')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ productId: product.id, type: 'entry', quantity: 10 })
+        .expect(403);
+    });
+
+    it('rechaza (403) GET stock con token de USER (no ADMIN)', async () => {
+      const product = await createProduct();
+      await request(app.getHttpServer())
+        .get(`/inventory/products/${product.id}/stock`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(403);
     });
   });
 });

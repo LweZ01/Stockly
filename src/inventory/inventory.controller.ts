@@ -5,22 +5,30 @@ import {
   Body,
   Param,
   ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 
 import { InventoryService } from './inventory.service.js';
 import { CreateMovementDto } from './dto/create-movement.dto.js';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../common/guards/roles.guard.js';
+import { Roles } from '../common/decorators/roles.decorator.js';
+import { Role } from '../common/enums/role.enum.js';
+import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import { User } from '../users/entities/user.entity.js';
 
-// TODO(auth): cuando exista AuthModule, todo el controller queda restringido a ADMIN
-//   con @UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.ADMIN) a nivel de clase.
-//   Además, userId dejará de venir en el body y se obtendrá de @CurrentUser().
 @Controller('inventory')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMIN)
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
   @Post('movements')
-  registerMovement(@Body() dto: CreateMovementDto) {
-    const { userId, ...movementDto } = dto;
-    return this.inventoryService.registerMovement(movementDto, userId);
+  registerMovement(
+    @Body() dto: CreateMovementDto,
+    @CurrentUser() currentUser: User,
+  ) {
+    return this.inventoryService.registerMovement(dto, currentUser.id);
   }
 
   @Get('products/:productId/stock')

@@ -162,7 +162,7 @@ inventory-api/
   - [x] Decorador `@CurrentUser`
   - [x] `main.ts` actualizado: `cookie-parser` registrado + `ValidationPipe` global (antes solo estaba en los tests)
   - [x] Tests e2e de Auth (`auth.controller.e2e-spec.ts`) — ✅ **11 tests pasando**
-  - [ ] Aplicar `JwtAuthGuard`/`RolesGuard` a Categories/Products/Users/Inventory (revisar cada `TODO(auth)` marcado en sus controllers) ← ÚLTIMO PASO DEL PROYECTO
+  - [x] Aplicar `JwtAuthGuard`/`RolesGuard` a Categories/Products/Users/Inventory — ✅ **PROYECTO COMPLETO**
 - [x] **Fase 4 — Módulo Categories** ✅ COMPLETA
   - [x] CRUD completo
   - [ ] Protección con guards (solo ADMIN puede crear/editar/borrar) — pendiente hasta cerrar Auth
@@ -188,10 +188,25 @@ inventory-api/
     - ⚠️ Fix clave: `typeorm.config.ts` no puede usar el glob `entities: [__dirname + '/../**/*.entity{.ts,.js}']` bajo ESM+Vitest (rompe con SyntaxError) — hay que listar las entidades explícitamente como clases importadas
     - ⚠️ Fix clave (Auth): `test/utils/test-app.ts` bootstrapea la app de forma independiente a `main.ts` — cualquier middleware agregado a `main.ts` (como `cookie-parser`) debe replicarse manualmente ahí también, o los tests fallan silenciosamente (ej: cookies nunca se parsean, `req.cookies` queda `undefined`)
     - Nota de diseño: en el test de rotación de `/auth/refresh`, no se compara el `accessToken` viejo vs el nuevo por igualdad estricta — un JWT firma por segundo (`iat` con resolución de segundos), así que dos tokens generados en el mismo segundo con el mismo payload son idénticos byte a byte. La prueba real de rotación es que el refresh token (cookie) cambia, no el access token.
-  - [ ] Actualizar e2e existentes (Products/Categories/Users/Inventory) para incluir tokens de auth una vez que se apliquen los guards
-- [ ] **Fase 9 — Dockerización de la app**
-  - [ ] Dockerfile para la API
-  - [ ] docker-compose con API + DB juntas
+  - [x] Actualizar e2e existentes (Products/Categories/Users/Inventory) para incluir tokens de auth — ✅ **94/94 tests e2e pasando en 5 archivos**
+    - Bug real encontrado y corregido en Categories: `remove()` no tenía `@HttpCode(HttpStatus.NO_CONTENT)`, devolvía 200 en vez de 204
+    - ⚠️ Fix crítico: `JwtAuthGuard`/`RolesGuard` rompían TODA la app (no solo tests) con `UnknownDependenciesException: AuthModuleOptions` al aplicarlos por primera vez en Categories. Causa: `PassportModule` sin argumentos no registra `AuthModuleOptions` como provider resoluble entre módulos en esta versión de `@nestjs/passport`. Fix: `PassportModule.register({ defaultStrategy: 'jwt' })` explícito en CADA módulo que use `JwtAuthGuard` (auth, categories, products, users, inventory) — `@Global()` en `AuthModule` y reexportar `PassportModule` en sus `exports` no fueron suficientes por sí solos
+    - Users: autorización mixta (rol + identidad) resuelta sin guard adicional — `@UseGuards(JwtAuthGuard)` + comparación manual `currentUser.role !== Role.ADMIN && currentUser.id !== id` con `@CurrentUser()`, lanzando `ForbiddenException` en el propio método del controller
+    - Inventory: guard aplicado a nivel de clase (todo el controller es ADMIN) en vez de método por método; `CreateMovementDto` perdió su `userId` temporal, ahora viene de `@CurrentUser()`
+    - Nuevos helpers en `test/utils/test-app.ts`: `createAdminAndLogin(app)` y `createUserAndLogin(app)` — crean usuario real vía `UsersService`, promueven a `Role.ADMIN` por repositorio si aplica, loguean vía HTTP real (`POST /auth/login` devuelve 200, no 201) y devuelven `{ accessToken, user }`
+- [x] **Fase 9 — Dockerización de la app** ✅ COMPLETA
+  - [x] `Dockerfile` multi-stage (4 etapas: `base` compartida + `deps-prod` + `builder` + `runtime`)
+    - `base`: `node:22-alpine` + `npm@11` pineado (la versión 10.9.8 que trae la imagen tiene un bug que impide que `--omit=dev` funcione bien)
+    - `deps-prod`: instala `python3 make g++` (requeridos por los bindings nativos de `bcrypt`) y corre `npm ci --omit=dev`
+    - `builder`: `npm ci` completo + `npm run build` (`nest build` → `dist/`)
+    - `runtime`: imagen limpia sin herramientas de compilación, usuario no-root (`app`), copia solo `node_modules` de producción + `dist/` + `package.json` (necesario por `"type": "module"`)
+  - [x] `.dockerignore` (excluye `node_modules`, `dist`, tests, `.env*`, config del editor, etc. — el `.env` NUNCA se copia dentro de la imagen)
+  - [x] `docker-compose.yml` con 3 servicios:
+    - `postgres` — siempre activo, healthcheck `pg_isready`, volumen persistente
+    - `api` — depende de `postgres` con `condition: service_healthy`, variables interpoladas desde `.env` de la raíz (`DB_HOST=postgres`, no `localhost`)
+    - `postgres-test` — bajo `profiles: ['test']`, opt-in con `docker compose --profile test up`, no se levanta con `up` normal
+  - [x] Migraciones: decisión deliberada de **no** correrlas automáticamente al iniciar el contenedor (evita race conditions con réplicas, permite rollback independiente de API vs esquema) — se corren manualmente desde el host contra el puerto expuesto
+  - ⚠️ Deuda técnica documentada (no oculta): devDependencies coladas en la imagen final (~110MB vs ~60MB esperados) por un bug de npm 10.x/11.x con el `package-lock.json` actual y `--omit=dev`; fix futuro es regenerar el lockfile o agregar `npm prune --omit=dev` en runtime con npm 11
 - [ ] **Fase 10 — Documentación y entrega**
   - [ ] README del proyecto (para el portafolio, distinto a este plan)
   - [ ] Colección de Postman/Insomnia o uso de Swagger como única doc

@@ -11,17 +11,50 @@ services:
       - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U inventory_user -d inventory_db']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: inventory-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: inventory_user
+      DB_PASSWORD: inventory_pass
+      DB_NAME: inventory_db
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+    ports:
+      - '3000:3000'
 
   postgres-test:
     image: postgres:16-alpine
     container_name: inventory-db-test
     restart: unless-stopped
+    profiles: ['test']
     environment:
       POSTGRES_USER: inventory_test_user
       POSTGRES_PASSWORD: inventory_test_pass
       POSTGRES_DB: inventory_test_db
     ports:
       - '5433:5432'
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'pg_isready -U inventory_test_user -d inventory_test_db']
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
