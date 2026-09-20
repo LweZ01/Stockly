@@ -1,375 +1,378 @@
-# Inventory API — Plan Maestro
+# Inventory API
 
-Proyecto de portafolio: sistema de gestión de inventario con NestJS + TypeORM + PostgreSQL, para demostrar dominio de NestJS (postulación Farmatodo).
+RESTful API for inventory management with role-based access control, custom JWT authentication (access token + rotating httpOnly refresh token), and full movement-tracking history, built with NestJS and a layered architecture on top of TypeORM.
 
-> Este README es el mapa del proyecto. Se va a ir marcando `[x]` a medida que completes cada punto. Las preguntas de diseño pendientes están marcadas con `❓` — las iremos respondiendo antes de implementar cada módulo.
+## Features
 
----
+- User registration and login with hashed passwords (bcrypt, 12 salt rounds)
+- Authentication via short-lived JWT access tokens + a rotating refresh token delivered as an httpOnly cookie
+- Refresh token rotation with reuse detection: reusing an already-rotated token revokes every active session for that user (stolen-token mitigation)
+- Role-based access control (ADMIN / USER) enforced with guards, plus per-resource identity checks (a user can view/edit their own profile; only the owner can change their own password)
+- Full CRUD for products and categories, with soft-delete on products and delete-blocking on categories that still have associated products
+- Product filtering by name (partial match), category, and price range, with paginated, deterministically-ordered results
+- Inventory movements (ENTRY / EXIT / ADJUSTMENT) with full history, computed stock derived from the movement log (not stored redundantly on the product), and row-level locking to prevent race conditions on concurrent stock updates
+- Centralized error handling with a consistent response shape across the whole API
+- Interactive API documentation via Swagger, with JWT bearer auth support
+- Security headers via Helmet, strict CORS with credentials support, and request size limits
+- Fail-fast environment variable validation at boot
+- Fully containerized with a multi-stage Dockerfile (non-root runtime user) and Docker Compose orchestration
 
-## Estructura de carpetas
+## Stack
+
+- Runtime: Node.js + NestJS (ES Modules)
+- Database: PostgreSQL + TypeORM (versioned migrations, no `synchronize`)
+- Authentication: JWT (`@nestjs/jwt`, `passport-jwt`) + bcrypt
+- Validation: `class-validator` / `class-transformer`
+- Documentation: Swagger (`@nestjs/swagger`)
+- Security: Helmet, CORS, cookie-parser
+- Testing: Vitest — unit tests (mocked repositories) + end-to-end tests (real Postgres instance)
+- Containerization: Docker (multi-stage build) + Docker Compose
+
+## Architecture
+
+Modular, layered architecture: controllers → services → repositories (TypeORM), with cross-cutting concerns (auth guards, roles, exception handling, pagination) factored into a shared `common/` module. Configuration is centralized and validated once at boot, rather than read ad hoc from `process.env` throughout the codebase.
 
 ```
 inventory-api/
 ├── src/
-│   ├── main.ts✅
-│   ├── app.module.ts✅
-│   │
 │   ├── config/
-│   │   ├── env.ts                   # ✅ config tipada/validada al boot — única fuente de verdad (db + jwt)
-│   │   ├── typeorm.config.ts        # ✅ opciones de TypeORM para runtime (AppModule), lee de env.ts
-│   │   ├── data-source.ts           # ✅ DataSource para CLI de migraciones (dev/test), lee de env.ts
-│   │   └── data-source.prod.ts      # ✅ DataSource para CLI de migraciones (prod), lee de env.ts
-│   │
-│   ├── database/
-│   │   └── migrations/
-│   │       └── (archivos generados por TypeORM CLI)✅
+│   │   ├── env.ts                 # Fail-fast environment variable validation (db + jwt)
+│   │   ├── typeorm.config.ts      # TypeORM options for runtime (AppModule)
+│   │   ├── data-source.ts         # DataSource for the migrations CLI (dev/test)
+│   │   └── data-source.prod.ts    # DataSource for the migrations CLI (prod)
 │   │
 │   ├── common/
-│   │   ├── decorators/
-│   │   │   ├── roles.decorator.ts✅
-│   │   │   └── current-user.decorator.ts✅
-│   │   ├── guards/
-│   │   │   ├── jwt-auth.guard.ts✅
-│   │   │   └── roles.guard.ts✅
-│   │   ├── filters/
-│   │   │   └── http-exception.filter.ts
-│   │   ├── interceptors/
-│   │   │   └── ❓ (transform interceptor para respuestas uniformes, opcional)
-│   │   ├── pipes/
-│   │   │   └── ❓ (pipes custom si hacen falta, opcional)
-│   │   ├── dto/
-│   │   │   └── pagination-query.dto.ts✅
-│   │   ├── enums/
-│   │   │   └── role.enum.ts✅
-│   │   └── utils/
-│   │       └── postgres-error.util.ts✅
+│   │   ├── decorators/            # @Roles, @CurrentUser
+│   │   ├── guards/                # JwtAuthGuard, RolesGuard
+│   │   ├── filters/                # Global HttpExceptionFilter
+│   │   ├── dto/                    # PaginationQueryDto
+│   │   ├── enums/                  # Role
+│   │   └── utils/                  # Postgres error translation (unique/FK violations)
 │   │
 │   ├── auth/
-│   │   ├── auth.module.ts✅
-│   │   ├── auth.controller.ts✅
-│   │   ├── auth.service.ts✅
-│   │   ├── entities/
-│   │   │   └── refresh-token.entity.ts✅
-│   │   ├── strategies/
-│   │   │   └── jwt.strategy.ts✅
-│   │   └── dto/
-│   │       ├── register.dto.ts ✅
-│   │       └── login.dto.ts ✅
+│   │   ├── entities/               # RefreshToken
+│   │   ├── strategies/             # JwtStrategy
+│   │   ├── dto/                    # RegisterDto, LoginDto
+│   │   ├── auth.service.ts
+│   │   └── auth.controller.ts
 │   │
 │   ├── users/
-│   │   ├── users.module.ts✅
-│   │   ├── users.controller.ts✅
-│   │   ├── users.service.ts✅
-│   │   ├── entities/
-│   │   │   └── user.entity.ts✅
-│   │   └── dto/
-│   │       ├── create-user.dto.ts✅
-│   │       ├── update-user.dto.ts✅
-│   │       └── change-password.dto.ts✅
-│   │
 │   ├── categories/
-│   │   ├── categories.module.ts✅
-│   │   ├── categories.controller.ts✅
-│   │   ├── categories.service.ts✅
-│   │   ├── entities/
-│   │   │   └── category.entity.ts✅
-│   │   └── dto/
-│   │       ├── create-category.dto.ts✅
-│   │       └── update-category.dto.ts✅
-│   │
 │   ├── products/
-│   │   ├── products.module.ts✅
-│   │   ├── products.controller.ts✅
-│   │   ├── products.service.ts✅
-│   │   ├── entities/
-│   │   │   └── product.entity.ts✅
-│   │   └── dto/
-│   │       ├── create-product.dto.ts✅
-│   │       ├── update-product.dto.ts✅
-│   │       └── product-query.dto.ts✅
-│   │
 │   └── inventory/
-│       ├── inventory.module.ts✅
-│       ├── inventory.controller.ts✅
-│       ├── inventory.service.ts✅
-│       ├── enums/
-│       │   └── movement-type.enum.ts✅
-│       ├── entities/
-│       │   └── inventory-movement.entity.ts✅
-│       └── dto/
-│           └── create-movement.dto.ts✅
+│       # Each domain module follows the same shape:
+│       # entities/, dto/, <module>.service.ts, <module>.controller.ts,
+│       # plus *.spec.ts (unit) and *.e2e-spec.ts (end-to-end) alongside the code
 │
 ├── test/
-│   ├── setup-env.ts           # ✅ carga .env.test antes de correr e2e
 │   └── utils/
-│       └── test-app.ts        # ✅ createTestApp (bootstrap Nest) + truncateAll (limpieza entre tests)
+│       └── test-app.ts             # Shared e2e bootstrap (test app + DB cleanup + auth helpers)
 │
-├── docker-compose.yml
-├── .env
-├── .env.test                  # ✅ variables para la DB de test (postgres-test, puerto 5433)
-├── .env.example
-├── vitest.config.ts           # ✅ unitarios
-├── vitest.config.e2e.ts       # ✅ e2e — fileParallelism: false (clave, ver notas), unplugin-swc
-├── package.json
-└── tsconfig.json
+├── Dockerfile                       # Multi-stage build (deps-prod / builder / runtime)
+├── docker-compose.yml                # api + postgres + postgres-test (test profile, opt-in)
+├── vitest.config.ts                  # Unit tests
+├── vitest.config.e2e.ts               # End-to-end tests (sequential execution against real DB)
+└── package.json
 ```
 
----
+## Database Schema
 
-## TODO general (orden de implementación)
+```mermaid
+erDiagram
+    User ||--o{ RefreshToken : owns
+    User ||--o{ InventoryMovement : registers
+    Category ||--o{ Product : contains
+    Product ||--o{ InventoryMovement : "has movements"
 
-- [x] Setup inicial del proyecto (Nest CLI, ESM, tsconfig)
-- [x] Docker Compose con PostgreSQL
-- [x] Conexión TypeORM (runtime + data-source para CLI)
-- [x] Scripts de migraciones funcionando (probado con `migration:generate`)
-- [x] **Fase 1 — Dominio base**
-  - [x] Enum de roles (`common/enums/role.enum.ts`)
-  - [x] Entidad `User`
-  - [x] Entidad `Category`
-  - [x] Entidad `Product`
-  - [x] Entidad de movimiento de inventario
-  - [x] Todos los DTOs (Product, Category, User, InventoryMovement, PaginationQuery)
-  - [x] Los 4 `.module.ts` armados (Users, Categories, Products, Inventory) con `forFeature` y exports
-  - [x] Generar y correr migración inicial con las 4 entidades — ✅ generada exitosamente (`InitSchema`), tras resolver: import circular Product↔InventoryMovement en ESM (solución: `import type` + string en decorador `@ManyToOne('Product', ...)`) y error de columna `imageUrl` (faltaba `type: 'varchar'` explícito para tipos unión con `null`)
-  - ⚠️ Pendiente: correr `npm run migration:run` para aplicarla contra la base de datos
-- [x] **Orden de trabajo actual: módulo por módulo, empezando por Products**
-  - [x] **Products** (más avanzado — entidad, DTOs y module ya listos) ← COMPLETO
-    - [x] `products.service.ts`
-    - [x] `products.controller.ts`
-  - [x] **Categories** ← COMPLETO
-    - [x] `categories.service.ts`
-    - [x] `categories.controller.ts`
-  - [x] **Users** ← COMPLETO
-    - [x] `users.service.ts`
-    - [x] `users.controller.ts`
-  - [x] **Inventory** ← COMPLETO (el más complejo: transacciones, locks, cálculo de stock)
-    - [x] `inventory.service.ts`
-    - [x] `inventory.controller.ts`
-  - [x] **Auth** (al final, depende de Users) ← EN PROGRESO, ÚLTIMO MÓDULO DE DOMINIO
-- [x] **Fase 2 — Módulo Users** ✅ COMPLETA
-  - [x] CRUD básico de usuarios (sin exponer password)
-  - [x] Hasheo de password (bcrypt) en creación/actualización
-- [x] **Fase 3 — Módulo Auth** ✅ COMPLETA
-  - [x] Decisiones de diseño cerradas: access + refresh token (rotación en cada uso + detección de reuso), refresh token en tabla dedicada `RefreshToken`, entregado como httpOnly cookie, config JWT centralizada en `env.ts`, login rechaza `isActive:false`
-  - [x] `env.ts` creado y centralizado (db + jwt) — `typeorm.config.ts`, `data-source.ts`, `data-source.prod.ts` migrados para usarlo
-  - [x] Entidad `RefreshToken` (id, tokenHash, user con `@JoinColumn`, expiresAt, revokedAt) + migración `AddRefreshTokens` aplicada en dev y test
-  - [x] Registro (`POST /auth/register`)
-  - [x] Login (`POST /auth/login` — emite JWT access+refresh, setea cookie httpOnly)
-  - [x] Refresh (`POST /auth/refresh` — rotación + detección de reuso → revoca todos los tokens del usuario si se reusa uno revocado)
-  - [x] Logout (`POST /auth/logout` — revoca el refresh token actual)
-  - [x] `JwtStrategy` + `JwtAuthGuard`
-  - [x] `RolesGuard` + decorador `@Roles`
-  - [x] Decorador `@CurrentUser`
-  - [x] `main.ts` actualizado: `cookie-parser` registrado + `ValidationPipe` global (antes solo estaba en los tests)
-  - [x] Tests e2e de Auth (`auth.controller.e2e-spec.ts`) — ✅ **11 tests pasando**
-  - [x] Aplicar `JwtAuthGuard`/`RolesGuard` a Categories/Products/Users/Inventory — ✅ **PROYECTO COMPLETO**
-- [x] **Fase 4 — Módulo Categories** ✅ COMPLETA
-  - [x] CRUD completo
-  - [x] Protección con guards (solo ADMIN puede crear/editar/borrar) — pendiente hasta cerrar Auth
-- [x] **Fase 5 — Módulo Products** ✅ COMPLETA
-  - [x] CRUD completo
-  - [x] Relación con Category
-  - [x] Filtros (por categoría, por nombre, por rango de precio, etc.)
-  - [x] Paginación (con orden determinista por `createdAt`)
-- [x] **Fase 6 — Módulo Inventory** ✅ COMPLETA
-  - [x] Registro de movimientos (entrada/salida de stock)
-  - [x] Actualización de stock del producto asociado
-  - [x] Consulta de historial de movimientos
-- [ ] **Fase 7 — Transversales**
-  - [ ] Filtro global de excepciones (`HttpExceptionFilter`)
-  - [x] `ValidationPipe` global con `whitelist` + `forbidNonWhitelisted`
-  - [ ] Documentación Swagger completa
-  - [ ] Manejo de errores consistente (formato de respuesta de error uniforme)
-- [x] **Fase 8 — Testing** — módulos de dominio + Auth completos, falta actualizar e2e existentes tras aplicar guards
-  - [x] Tests unitarios de servicios (Vitest, no Jest) — ✅ 26 tests pasando en 5 archivos: products.service.spec.ts (4), categories.service.spec.ts (6), users.service.spec.ts (7), inventory.service.spec.ts (8, mockeando transacción/EntityManager/lock pesimista), app.controller.spec.ts (1)
-  - [x] Tests e2e de los endpoints principales — ✅ **64 tests pasando en 5 archivos**: products.controller.e2e-spec.ts (14), categories.controller.e2e-spec.ts (13), users.controller.e2e-spec.ts (12), inventory.controller.e2e-spec.ts (14), auth.controller.e2e-spec.ts (11)
-    - Setup: `.env.test` + `test/setup-env.ts` + `vitest.config.e2e.ts` (Vitest, no Jest — usa `unplugin-swc`) + `test/utils/test-app.ts` (bootstrap + TRUNCATE entre tests)
-    - ⚠️ Fix clave: `vitest.config.e2e.ts` necesita `fileParallelism: false` — sin eso, los archivos e2e corren en paralelo contra la misma DB de test y sus TRUNCATE se pisan entre sí (fallos intermitentes)
-    - ⚠️ Fix clave: `typeorm.config.ts` no puede usar el glob `entities: [__dirname + '/../**/*.entity{.ts,.js}']` bajo ESM+Vitest (rompe con SyntaxError) — hay que listar las entidades explícitamente como clases importadas
-    - ⚠️ Fix clave (Auth): `test/utils/test-app.ts` bootstrapea la app de forma independiente a `main.ts` — cualquier middleware agregado a `main.ts` (como `cookie-parser`) debe replicarse manualmente ahí también, o los tests fallan silenciosamente (ej: cookies nunca se parsean, `req.cookies` queda `undefined`)
-    - Nota de diseño: en el test de rotación de `/auth/refresh`, no se compara el `accessToken` viejo vs el nuevo por igualdad estricta — un JWT firma por segundo (`iat` con resolución de segundos), así que dos tokens generados en el mismo segundo con el mismo payload son idénticos byte a byte. La prueba real de rotación es que el refresh token (cookie) cambia, no el access token.
-  - [x] Actualizar e2e existentes (Products/Categories/Users/Inventory) para incluir tokens de auth — ✅ **94/94 tests e2e pasando en 5 archivos**
-    - Bug real encontrado y corregido en Categories: `remove()` no tenía `@HttpCode(HttpStatus.NO_CONTENT)`, devolvía 200 en vez de 204
-    - ⚠️ Fix crítico: `JwtAuthGuard`/`RolesGuard` rompían TODA la app (no solo tests) con `UnknownDependenciesException: AuthModuleOptions` al aplicarlos por primera vez en Categories. Causa: `PassportModule` sin argumentos no registra `AuthModuleOptions` como provider resoluble entre módulos en esta versión de `@nestjs/passport`. Fix: `PassportModule.register({ defaultStrategy: 'jwt' })` explícito en CADA módulo que use `JwtAuthGuard` (auth, categories, products, users, inventory) — `@Global()` en `AuthModule` y reexportar `PassportModule` en sus `exports` no fueron suficientes por sí solos
-    - Users: autorización mixta (rol + identidad) resuelta sin guard adicional — `@UseGuards(JwtAuthGuard)` + comparación manual `currentUser.role !== Role.ADMIN && currentUser.id !== id` con `@CurrentUser()`, lanzando `ForbiddenException` en el propio método del controller
-    - Inventory: guard aplicado a nivel de clase (todo el controller es ADMIN) en vez de método por método; `CreateMovementDto` perdió su `userId` temporal, ahora viene de `@CurrentUser()`
-    - Nuevos helpers en `test/utils/test-app.ts`: `createAdminAndLogin(app)` y `createUserAndLogin(app)` — crean usuario real vía `UsersService`, promueven a `Role.ADMIN` por repositorio si aplica, loguean vía HTTP real (`POST /auth/login` devuelve 200, no 201) y devuelven `{ accessToken, user }`
-- [x] **Fase 9 — Dockerización de la app** ✅ COMPLETA
-  - [x] `Dockerfile` multi-stage (4 etapas: `base` compartida + `deps-prod` + `builder` + `runtime`)
-    - `base`: `node:22-alpine` + `npm@11` pineado (la versión 10.9.8 que trae la imagen tiene un bug que impide que `--omit=dev` funcione bien)
-    - `deps-prod`: instala `python3 make g++` (requeridos por los bindings nativos de `bcrypt`) y corre `npm ci --omit=dev`
-    - `builder`: `npm ci` completo + `npm run build` (`nest build` → `dist/`)
-    - `runtime`: imagen limpia sin herramientas de compilación, usuario no-root (`app`), copia solo `node_modules` de producción + `dist/` + `package.json` (necesario por `"type": "module"`)
-  - [x] `.dockerignore` (excluye `node_modules`, `dist`, tests, `.env*`, config del editor, etc. — el `.env` NUNCA se copia dentro de la imagen)
-  - [x] `docker-compose.yml` con 3 servicios:
-    - `postgres` — siempre activo, healthcheck `pg_isready`, volumen persistente
-    - `api` — depende de `postgres` con `condition: service_healthy`, variables interpoladas desde `.env` de la raíz (`DB_HOST=postgres`, no `localhost`)
-    - `postgres-test` — bajo `profiles: ['test']`, opt-in con `docker compose --profile test up`, no se levanta con `up` normal
-  - [x] Migraciones: decisión deliberada de **no** correrlas automáticamente al iniciar el contenedor (evita race conditions con réplicas, permite rollback independiente de API vs esquema) — se corren manualmente desde el host contra el puerto expuesto
-- [ ] **Fase 10 — Documentación y entrega**
-  - [ ] README del proyecto (para el portafolio, distinto a este plan)
-  - [ ] Colección de Postman/Insomnia o uso de Swagger como única doc
-  - [ ] Diagrama de entidad-relación
+    User {
+        uuid id PK
+        varchar email UK
+        varchar password
+        varchar name
+        varchar role
+        boolean isActive
+        timestamp createdAt
+        timestamp updatedAt
+    }
 
----
+    Category {
+        uuid id PK
+        varchar name UK
+        text description
+        timestamp createdAt
+        timestamp updatedAt
+    }
 
-## TODO detallado por módulo
+    Product {
+        uuid id PK
+        varchar sku UK
+        varchar name
+        text description
+        decimal price
+        varchar imageUrl
+        boolean isActive
+        uuid categoryId FK
+        timestamp createdAt
+        timestamp updatedAt
+    }
 
-### `common/` (transversal — se construye progresivamente, no todo de una vez)
+    InventoryMovement {
+        uuid id PK
+        varchar type
+        int quantity
+        text reason
+        uuid productId FK
+        uuid userId FK
+        timestamptz createdAt
+    }
 
-- [x] `enums/role.enum.ts` — `ADMIN`, `USER`
-- [x] `decorators/roles.decorator.ts` — `@Roles(Role.ADMIN)`
-- [x] `decorators/current-user.decorator.ts` — extrae el usuario del `request` (inyectado por JwtStrategy)
-- [x] `guards/jwt-auth.guard.ts` — extiende `AuthGuard('jwt')`
-- [x] `guards/roles.guard.ts` — lee metadata de `@Roles` y compara contra el usuario autenticado (usa `Reflector.getAllAndOverride`)
-- [ ] `filters/http-exception.filter.ts` — formato uniforme de errores
-- [x] `dto/pagination-query.dto.ts` — `page` (default 1), `limit` (default 10), reutilizable en varios módulos
-- [x] `utils/postgres-error.util.ts` — `handlePostgresError` traduce códigos de error de Postgres (23505 unique, 23503 FK) a excepciones de Nest; mensaje genérico fijo, no específico por campo
-- ❓ ¿Vas a necesitar un `TransformInterceptor` para envolver todas las respuestas en un formato `{ data, meta }`? (Común en APIs profesionales, pero es una decisión de diseño tuya)
+    RefreshToken {
+        uuid id PK
+        varchar tokenHash UK
+        uuid userId FK
+        timestamptz expiresAt
+        timestamptz revokedAt
+        timestamptz createdAt
+    }
+```
 
-### `users/`
+Design decisions:
 
-- [x] `entities/user.entity.ts`
-  - ✅ Campos: `id`, `email` (único), `password`, `name`, `role` (string, enum de TS `Role`, default `USER`), `isActive` (default true), `createdAt`, `updatedAt`
-  - ✅ `role` es `varchar` simple con enum de TypeScript a nivel de código (no enum de Postgres) — más flexible para agregar roles después
-- [x] `dto/create-user.dto.ts` — `email`, `password` (min 8), `name`; SIN `role` (siempre nace USER) ni `isActive` (siempre nace true)
-- [x] `dto/update-user.dto.ts` — `PartialType(OmitType(CreateUserDto, ['password']))`, para no permitir cambiar password desde aquí
-- [x] `dto/change-password.dto.ts` — `currentPassword` + `newPassword` (min 8), endpoint separado
-- [x] `users.service.ts`
-  - [x] `create` (hashea password con bcrypt, 12 salt rounds)
-  - [x] `findAll` / `findOne` (no exponen password, gracias a `select: false` en la entidad)
-  - [x] `findByEmail` (usado por Auth; SÍ trae password vía `addSelect`)
-  - [x] `update` (preload + save, sin tocar password)
-  - [x] `changePassword` (compara con bcrypt.compare, luego re-hashea; usa helper privado `findOneWithPassword`)
-  - [x] `remove` (soft-delete: isActive=false)
-- [x] `users.controller.ts`
-  - ✅ Sin POST (creación solo vía `/auth/register`)
-  - ✅ `GET /users`, `GET /users/:id`, `PATCH /users/:id`, `PATCH /users/:id/password`, `DELETE /users/:id` (204)
-  - ✅ `TODO(auth)`: GET/DELETE solo ADMIN; GET/PATCH :id → ADMIN o propio usuario; PATCH /:id/password → solo propio usuario
+- All primary keys are UUIDs to avoid exposing sequential identifiers.
+- `price` is `NUMERIC(10,2)`, never `FLOAT`, to avoid rounding errors with money.
+- Stock is **not** stored on `Product`. It's derived on read from `InventoryMovement`: the most recent `ADJUSTMENT` acts as a checkpoint, and only `ENTRY`/`EXIT` movements after it are summed. This keeps stock as a single source of truth (the movement log) instead of a redundant column that could drift out of sync.
+- `Category` deletion is blocked (`409 Conflict`) if it still has associated products — a real `DELETE`, not a soft-delete, since categories carry no history worth preserving.
+- `Product` deletion is a soft-delete (`isActive = false`) — products are referenced by historical `InventoryMovement` rows and should never disappear from that history.
+- `RefreshToken.tokenHash` stores a SHA-256 hash of the token, never the plaintext value — the same principle as password hashing, applied to session tokens.
+- `RefreshToken.user` cascades on delete (`ON DELETE CASCADE`), since a token is meaningless without its owner.
 
-### `auth/`
+## Authentication
 
-- ✅ Diseño elegido: **access + refresh token con rotación y detección de reuso** (misma arquitectura que el proyecto JWT anterior)
-- ✅ Refresh token vive en tabla dedicada `RefreshToken` (no columna en `User`), guardando el **hash** del token, nunca el token plano
-- ✅ Refresh token se entrega como **httpOnly cookie**; el access token va en el body de la respuesta de login/refresh
-- ✅ Rotación: cada `refresh` revoca el token usado y emite un par nuevo
-- ✅ Detección de reuso: si se intenta usar un refresh token ya revocado, se revocan **todos** los refresh tokens del usuario (señal de robo de token)
-- ✅ Login rechaza usuarios con `isActive: false` (401/403)
-- ✅ Config de JWT centralizada en `config/env.ts` (dos secrets distintos: `JWT_ACCESS_SECRET` y `JWT_REFRESH_SECRET`, nunca el mismo secret para ambos)
-- [x] `entities/refresh-token.entity.ts`
-  - Campos: `id`, `tokenHash` (con `@Index({unique:true})`), `user` (ManyToOne, obligatorio, `onDelete: 'CASCADE'`), `userId` (columna explícita además de la relación), `expiresAt`, `revokedAt` (nullable, null = activo), `createdAt` (sin `updatedAt`) — todas las fechas como `timestamptz`
-- [x] Migración `AddRefreshTokens` — aplicada en dev y test
-- [x] `dto/register.dto.ts`
-- [x] `dto/login.dto.ts`
-- [x] `strategies/jwt.strategy.ts` — valida el access token, usa `UsersService.findById` (sin lanzar excepción si no existe) y retorna el usuario o `UnauthorizedException`
-- [x] `auth.service.ts`
-  - [x] `register` — crea usuario vía `UsersService`
-  - [x] `login` — valida credenciales, rechaza `isActive:false`, emite access+refresh, guarda hash del refresh (SHA-256 de un token aleatorio de 64 bytes, no un JWT)
-  - [x] `refreshTokens` — valida hash contra DB (no revocado, no expirado), detecta reuso (revoca TODOS los tokens del usuario si el token ya estaba revocado), rota el par de tokens
-  - [x] `logout` — revoca el refresh token actual
-  - ⚠️ Deuda técnica documentada: race condition entre el `findOne` y el `UPDATE` de rotación en `refreshTokens` — aceptable para el volumen de tráfico de este proyecto (sin necesidad de refactor a transacción + `UPDATE ... RETURNING` por ahora)
-- [x] `auth.controller.ts`
-  - [x] `POST /auth/register` (201, excluye `password` de la respuesta)
-  - [x] `POST /auth/login` (200, cookie httpOnly + `{ accessToken, user }` sin password)
-  - [x] `POST /auth/refresh` (200, lee cookie, rota, re-setea cookie)
-  - [x] `POST /auth/logout` (204, revoca + `clearCookie`)
-  - Usa `@Res({ passthrough: true })` para combinar manejo de cookies con `return` normal
+- **Access token**: JWT signed with `JWT_ACCESS_SECRET`, short TTL (default 15 minutes), payload `{ sub, email, role }`. Returned in the response body and expected on the `Authorization: Bearer <token>` header for protected routes.
+- **Refresh token**: an opaque random token (not a JWT), hashed with SHA-256 before being persisted. Delivered as an **httpOnly cookie** (`secure` in production, `sameSite: strict`) — never exposed to client-side JavaScript, and never included in any JSON response.
+- **Rotation**: every call to `POST /auth/refresh` revokes the token just used and issues a brand-new pair. The same refresh token can never be redeemed twice.
+- **Reuse detection**: if a token that has already been rotated (and is therefore revoked) is presented again, this is treated as a signal of token theft — every refresh token belonging to that user is immediately revoked, forcing re-authentication everywhere.
+- Login rejects deactivated accounts (`isActive: false`) with the same generic `401` used for wrong credentials, so failed attempts never leak which emails are registered or which accounts are disabled.
+- `POST /auth/logout` revokes the current refresh token and clears the cookie.
 
-### Notas técnicas de compilación (Auth)
+## Authorization
 
-- `isolatedModules` + `emitDecoratorMetadata` en `tsconfig.json` exige `import type` para tipos usados en posiciones de parámetro decoradas — por eso `Response`/`Request` de `express` se importan como `import type { Response, Request } from 'express';` en `auth.controller.ts`.
-- El tipo `StringValue` de la librería `ms` está centralizado en `env.ts` (`JwtConfig.accessExpiresIn`/`refreshExpiresIn` tipados como `StringValue`, cast solo ahí con `as StringValue`) — evita casts dispersos en `auth.service.ts`.
-- `main.ts` actualizado con `app.use(cookieParser())` y `app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))` — antes el `ValidationPipe` solo estaba en los tests e2e (`test-app.ts`), no en runtime real.
+Role-based access control (`ADMIN` / `USER`) via `JwtAuthGuard` + `RolesGuard`, with per-resource logic where a role alone isn't enough:
 
-### `categories/`
+| Resource                      | Read                       | Write                                      |
+| ----------------------------- | -------------------------- | ------------------------------------------ |
+| Categories                    | Public                     | ADMIN only                                 |
+| Products                      | Public                     | ADMIN only                                 |
+| Inventory (movements & stock) | ADMIN only                 | ADMIN only                                 |
+| Users (list)                  | ADMIN only                 | —                                          |
+| Users (single profile)        | ADMIN or the user themself | ADMIN or the user themself                 |
+| User password                 | —                          | The user themself only (not even an ADMIN) |
 
-- [x] `entities/category.entity.ts`
-  - ✅ Campos: `id`, `name` (único), `description` (nullable), `products` (relación inversa), `createdAt`, `updatedAt`
-- [x] `dto/create-category.dto.ts`
-- [x] `dto/update-category.dto.ts` — `PartialType(CreateCategoryDto)` vía `@nestjs/swagger`
-- [x] `categories.service.ts` — CRUD estándar (patrón idéntico a Products); `remove` bloquea con `ConflictException` si la categoría tiene productos asociados (DELETE real, no soft-delete)
-- [x] `categories.controller.ts` — sin guards por ahora (mismo `TODO(auth)`); lectura pública, escritura será solo ADMIN
+The user who registers an inventory movement is taken from the authenticated request (`@CurrentUser()`), never from the request body.
 
-### `products/`
+## Request Flow
 
-- [x] `entities/product.entity.ts`
-  - ✅ Campos: `id`, `sku` (único), `name`, `description`, `price` (decimal 10,2), `imageUrl`, `isActive` (default true), `category` (relación opcional), `movements`, `createdAt`, `updatedAt`
-  - ✅ `stock` **no vive en Product** — se deriva del historial de movimientos en `InventoryMovement`
-  - ✅ Relación `ManyToOne` con `Category`, `nullable: true` (categoría opcional)
-  - ✅ "Eliminar" un producto = soft-delete (`isActive = false`), nunca DELETE real
-- [x] `dto/create-product.dto.ts`
-  - ✅ `sku`, `name` obligatorios (`IsString` + `IsNotEmpty`)
-  - ✅ `description`, `imageUrl` opcionales
-  - ✅ `price`: `IsNumber({ maxDecimalPlaces: 2 })` + `Min(0)`
-  - ✅ `categoryId` opcional (`IsUUID`) — no se envía `isActive` (siempre nace `true`)
-- [x] `dto/update-product.dto.ts` — `PartialType(CreateProductDto)`
-- [x] `dto/product-query.dto.ts` — extiende `PaginationQueryDto` (común) + filtros: `name` (búsqueda parcial ILIKE), `categoryId`, `minPrice`/`maxPrice`
-  - ✅ `isActive` por defecto en `findAll`: pendiente definir en el service
-- [x] `products.service.ts`
-  - [x] `create` (resuelve categoryId → relación; usa `handlePostgresError` en el catch)
-  - [x] `findAll` (QueryBuilder: filtros name/categoryId/minPrice/maxPrice + paginación + isActive:true por defecto)
-  - [x] `findOne` (con relación category cargada; 404 si no existe)
-  - [x] `update` (usa `preload` + `save`, no `update()` directo — maneja categoryId condicionalmente)
-  - [x] `remove` (soft-delete: `update(id, { isActive: false })`)
-- [x] `products.controller.ts`
-  - ✅ Sin guards por ahora (todo público temporalmente) — marcado con `TODO(auth)` en el código para agregar `JwtAuthGuard`/`RolesGuard`/`@Roles(ADMIN)` en POST/PATCH/DELETE cuando se implemente Auth
-  - ✅ `POST /products`, `GET /products`, `GET /products/:id`, `PATCH /products/:id`, `DELETE /products/:id` (204 No Content)
-  - ✅ `ParseUUIDPipe` en los `:id` para validar formato antes de llegar al service
-- [x] `products.controller.ts`
+**Authentication flow** — how a client obtains and renews access:
 
-### `inventory/`
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API
+    participant DB as PostgreSQL
 
-- ✅ Diseño elegido: **con historial** — `InventoryMovement` registra cada movimiento y el stock se deriva de él (opción 2 del análisis original)
-- ✅ Tipos de movimiento: `ENTRY`, `EXIT`, `ADJUSTMENT`
-- ✅ Cada movimiento guarda `user` (quién lo hizo, opcional) y `reason` (motivo, texto libre)
-- [x] `enums/movement-type.enum.ts` — ✅ **completado**: `ENTRY = 'entry'`, `EXIT = 'exit'`, `ADJUSTMENT = 'adjustment'`
-- [x] `entities/inventory-movement.entity.ts`
-  - ✅ Campos: `id`, `type` (`MovementType`), `quantity` (siempre positivo, int), `reason` (nullable), `product` (relación obligatoria), `user` (relación opcional), `createdAt` (sin `updatedAt` — un movimiento no se edita)
-  - ⚠️ **Fix aplicado**: import circular con `Product` en ESM resuelto usando `import type { Product }` + `@ManyToOne('Product', (product: Product) => product.movements)` (string en vez de `() => Product`) — este mismo patrón puede hacer falta en `Category ↔ Product` si aparece el mismo error ahí
-- [x] `dto/create-movement.dto.ts` — `productId` (UUID), `type` (enum), `quantity` (int, min 0 — permite ADJUSTMENT a cero), `reason` opcional; `user` no va en el DTO, se obtiene del JWT
-  - ⚠️ Ajuste temporal: se agregó `userId` (UUID) al DTO mientras no existe Auth/@CurrentUser — marcado con TODO(auth) para quitar después
-- [x] `inventory.service.ts`
-  - [x] `getCurrentStock` — algoritmo con ADJUSTMENT como punto de referencia (SUM condicional con CASE WHEN vía QueryBuilder + getRawOne); usa `createdAt >=` + `id != adjustmentId` para evitar ambigüedad de timestamps iguales
-  - [x] `registerMovement` — transacción completa (`dataSource.transaction`) con lock pesimista (`pessimistic_write`) sobre Product, validación de stock insuficiente para EXIT
-  - [x] `findHistoryByProduct` — simple, sin paginar por ahora (posible mejora futura)
-  - ⚠️ No inyecta ProductsService — usa QueryBuilder directo sobre Product dentro de la transacción (necesario para el lock)
-- [x] `inventory.controller.ts`
-  - ✅ `POST /inventory/movements`, `GET /inventory/products/:productId/stock`, `GET /inventory/products/:productId/movements`
-  - ⚠️ Temporal: `userId` viene en el body del DTO (create-movement.dto) hasta que exista `@CurrentUser()` — TODO(auth) marcado para quitarlo
-  - ✅ `TODO(auth)`: todo el controller quedará restringido a ADMIN
+    Client->>API: POST /auth/login (email, password)
+    API->>DB: find user by email (with password)
+    DB-->>API: user row
+    API->>API: bcrypt.compare(password)
+    API->>API: sign access token (JWT, 15m)
+    API->>API: generate refresh token (random, SHA-256 hash)
+    API->>DB: store refresh token hash + expiry
+    API-->>Client: 200 { accessToken, user } + Set-Cookie refreshToken (httpOnly)
 
----
+    Note over Client,API: accessToken used as Bearer for subsequent requests
 
-## Preguntas de diseño pendientes (❓ resumen)
+    Client->>API: POST /auth/refresh (cookie: refreshToken)
+    API->>DB: find token by hash
+    DB-->>API: token row
+    alt token already revoked (reuse detected)
+        API->>DB: revoke ALL tokens for this user
+        API-->>Client: 401 Unauthorized
+    else token valid
+        API->>DB: revoke old token, store new one
+        API-->>Client: 200 { accessToken } + Set-Cookie refreshToken (new, httpOnly)
+    end
+```
 
-Todas las decisiones originales ya están cerradas:
+**Protected request flow** — how a request to an ADMIN-only endpoint is resolved (e.g. `POST /inventory/movements`):
 
-1. ✅ `TransformInterceptor`: no se implementó — cada endpoint responde su DTO/entidad tal cual (Products usa `{ data, total, page, limit }` propio en su service, no un interceptor global).
-2. ✅ Modelo de `User`: campos cerrados, `role` es string con enum de TS (no enum de Postgres).
-3. ✅ Autorización en `users.controller.ts`: perfil propio para cualquier autenticado, gestión de otros solo ADMIN (pendiente de aplicar con guards al cerrar Auth).
-4. ✅ Auth: **access + refresh token** con rotación y detección de reuso.
-5. ✅ Config de JWT: centralizada en `config/env.ts`.
-6. ✅ `categories`: lectura pública, escritura ADMIN (pendiente de aplicar con guards).
-7. ✅ `products`: campos cerrados, `stock` se deriva de `Inventory`, lectura pública/escritura ADMIN.
-8. ✅ `inventory`: con historial completo (`InventoryMovement` + transacciones + locks).
-9. ✅ `inventory`: registrar y ver historial restringido a ADMIN (pendiente de aplicar con guards).
+```mermaid
+flowchart TD
+    A[Incoming request] --> B{Authorization header present?}
+    B -- No --> Z1[401 Unauthorized]
+    B -- Yes --> C[JwtAuthGuard verifies JWT signature & expiry]
+    C -- Invalid/expired --> Z1
+    C -- Valid --> D[JwtStrategy loads user by id, checks isActive]
+    D -- Not found / inactive --> Z1
+    D -- OK --> E[RolesGuard checks required role]
+    E -- Role mismatch --> Z2[403 Forbidden]
+    E -- OK --> F[ValidationPipe validates & sanitizes DTO]
+    F -- Invalid body --> Z3[400 Bad Request]
+    F -- Valid --> G[Controller calls Service]
+    G --> H[Service opens a transaction]
+    H --> I[Row-level lock on the Product]
+    I --> J{EXIT with insufficient stock?}
+    J -- Yes --> Z3
+    J -- No --> K[Insert InventoryMovement, commit]
+    K --> L[200/201 response]
+```
 
-**Nuevas preguntas resueltas para Auth** (ver detalle en la sección `auth/` arriba): tipo de token, ubicación del refresh token, rotación, transporte del refresh token, y manejo de usuarios inactivos.
+## Installation
 
----
+```bash
+git clone <repo-url>
+cd inventory-api
+npm install
+cp .env.example .env
+```
 
-## Notas de contexto del proyecto
+Fill in `.env`:
 
-- Primera vez usando NestJS en un proyecto real (antes solo tutoriales).
-- Proyecto generado con Nest CLI en modo **ESM**.
-- ORM: **TypeORM** (con migraciones desde el inicio, no `synchronize`).
-- Ya resuelto: conexión a DB, `data-source.ts` para CLI de migraciones, `typeorm-ts-node-esm` requiere `ts-node` como dependencia explícita.
-- Metodología: Claude guía con estructura/TODOs/preguntas de diseño; el código lo escribe Jr.
+```
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=inventory_user
+DB_PASSWORD=inventory_pass
+DB_NAME=inventory_db
 
-### Fixes técnicos encontrados (para no repetirlos)
+JWT_ACCESS_SECRET=
+JWT_REFRESH_SECRET=
+# JWT_ACCESS_EXPIRES_IN=15m
+# JWT_REFRESH_EXPIRES_IN=7d
+```
 
-- **ESM + glob de entidades**: `entities: [__dirname + '/../**/*.entity{.ts,.js}']` rompe bajo Vitest+ESM (`SyntaxError: Invalid or unexpected token`, Node intenta cargar `.entity.ts` sin transpilar). Solución: listar las entidades explícitamente como clases importadas en `typeorm.config.ts`. El glob en `data-source.ts`/`data-source.prod.ts` (que corren vía `typeorm-ts-node-esm`, con transpilación) sí funciona bien y no hace falta tocarlo.
-- **Vitest e2e en paralelo contra DB compartida**: sin `fileParallelism: false` en `vitest.config.e2e.ts`, los archivos de test corren en workers distintos pero comparten la misma base de datos — sus `TRUNCATE` se pisan entre sí y producen fallos intermitentes (aserciones que a veces pasan y a veces no).
-- **Scripts npm anidados pierden variables de entorno en Windows**: `dotenv -e .env.test -- npm run migration:run` (que a su vez llama `npm run typeorm -- ...`) puede no propagar las variables inyectadas por `dotenv-cli` al proceso nieto. Solución: colapsar a una sola invocación directa, sin `npm run` intermedio: `dotenv -e .env.test -- typeorm-ts-node-esm -d src/config/data-source.ts migration:run`.
-- **`price` como `decimal` en TypeORM**: se devuelve como `number` en las respuestas de este proyecto (verificar si hay un transformer implícito o conversión de `pg`/`class-transformer` — no asumir automáticamente que viene como `string`, como es el comportamiento típico de TypeORM+Postgres sin transformer).
-- **Paginación sin `ORDER BY` explícito**: Postgres no garantiza orden de inserción en resultados paginados. `products.service.findAll` agrega `.orderBy('product.createdAt', 'ASC')` para resultados deterministas entre páginas.
+Generate strong, distinct secrets for each JWT variable:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+> `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` must be different values — sharing a secret between the two token types would let a leaked refresh token be used to forge access tokens.
+
+## Usage
+
+### With Docker (recommended)
+
+```bash
+docker compose up -d
+npm run migration:run
+```
+
+The API starts on `http://localhost:3000`. Swagger docs are available at `/api/docs` in non-production environments.
+
+### Without Docker
+
+Start a local PostgreSQL instance matching your `.env`, then:
+
+```bash
+npm run migration:run
+npm run start:dev
+```
+
+Verify it's running:
+
+```bash
+curl http://localhost:3000/categories
+```
+
+Expected response: `[]` (or an array of existing categories).
+
+## Testing
+
+```bash
+npm run test        # unit tests (mocked repositories)
+npm run test:e2e    # end-to-end tests (requires the test database — see docker-compose.yml)
+```
+
+120 tests total: 26 unit tests covering service logic (including transaction and pessimistic-lock behavior on inventory movements, mocked) and 94 end-to-end tests exercising the full HTTP stack against a real PostgreSQL instance — covering CRUD, filtering, pagination, the complete authentication flow (including refresh-token rotation and reuse detection), and the full authorization matrix (public vs. ADMIN-only vs. self-or-ADMIN).
+
+## API Documentation
+
+Full interactive documentation (request/response schemas, example payloads, and a live "Try it out" console) is served via Swagger at `/api/docs` when the API is running outside of production. Every protected endpoint is marked with a bearer-auth lock icon — log in through `POST /auth/login` from the docs UI, then use the "Authorize" button with the returned access token to exercise the rest of the API interactively.
+
+### Endpoints overview
+
+#### Auth
+
+| Method | Route          | Description                                             | Auth required              |
+| ------ | -------------- | ------------------------------------------------------- | -------------------------- |
+| POST   | /auth/register | Registers a new user                                    | No                         |
+| POST   | /auth/login    | Authenticates a user, sets the refresh token cookie     | No                         |
+| POST   | /auth/refresh  | Rotates the refresh token and issues a new access token | No (requires valid cookie) |
+| POST   | /auth/logout   | Revokes the current refresh token                       | No (requires valid cookie) |
+
+#### Categories
+
+| Method | Route           | Description                                     | Auth required |
+| ------ | --------------- | ----------------------------------------------- | ------------- |
+| GET    | /categories     | Lists all categories                            | No            |
+| GET    | /categories/:id | Gets a category by id                           | No            |
+| POST   | /categories     | Creates a category                              | ADMIN         |
+| PATCH  | /categories/:id | Updates a category                              | ADMIN         |
+| DELETE | /categories/:id | Deletes a category (blocked if it has products) | ADMIN         |
+
+#### Products
+
+| Method | Route         | Description                                                                                    | Auth required |
+| ------ | ------------- | ---------------------------------------------------------------------------------------------- | ------------- |
+| GET    | /products     | Lists active products — supports `name`, `categoryId`, `minPrice`, `maxPrice`, `page`, `limit` | No            |
+| GET    | /products/:id | Gets a product by id, with its category                                                        | No            |
+| POST   | /products     | Creates a product                                                                              | ADMIN         |
+| PATCH  | /products/:id | Updates a product                                                                              | ADMIN         |
+| DELETE | /products/:id | Soft-deletes a product                                                                         | ADMIN         |
+
+#### Inventory
+
+| Method | Route                                    | Description                                      | Auth required |
+| ------ | ---------------------------------------- | ------------------------------------------------ | ------------- |
+| POST   | /inventory/movements                     | Registers an ENTRY, EXIT, or ADJUSTMENT movement | ADMIN         |
+| GET    | /inventory/products/:productId/stock     | Returns the current computed stock               | ADMIN         |
+| GET    | /inventory/products/:productId/movements | Returns the movement history, most recent first  | ADMIN         |
+
+#### Users
+
+| Method | Route               | Description                      | Auth required |
+| ------ | ------------------- | -------------------------------- | ------------- |
+| GET    | /users              | Lists all users                  | ADMIN         |
+| GET    | /users/:id          | Gets a user by id                | ADMIN or self |
+| PATCH  | /users/:id          | Updates a user's profile         | ADMIN or self |
+| PATCH  | /users/:id/password | Changes a user's password        | Self only     |
+| DELETE | /users/:id          | Deactivates a user (soft-delete) | ADMIN         |
+
+Common error codes:
+
+| Code | Meaning                                                                           |
+| ---- | --------------------------------------------------------------------------------- |
+| 400  | Input validation error                                                            |
+| 401  | Not authenticated (token/cookie missing, invalid, or expired)                     |
+| 403  | Authenticated, but not authorized for this action                                 |
+| 404  | Resource not found                                                                |
+| 409  | Conflict (duplicate SKU/email/category name, or deleting a category still in use) |
+
+## Security
+
+- Passwords hashed with bcrypt (12 salt rounds)
+- Access and refresh tokens signed/hashed with separate secrets — a compromised refresh token can't be used to forge an access token
+- Refresh tokens are opaque, hashed at rest, rotated on every use, and revoked in bulk on reuse detection
+- Refresh token delivered as an httpOnly cookie (`secure` in production, `sameSite: strict`) — inaccessible to client-side JavaScript
+- CORS restricted with `credentials: true`, required for the cookie to work across origins
+- Security headers via Helmet; `X-Powered-By` disabled
+- Request body size limits (1MB) on JSON and URL-encoded payloads
+- Sensitive data (`password`) never included in API responses, enforced at the entity level (`select: false`) as well as explicitly stripped in auth responses
+- Every write to `users` password/profile endpoints is scoped to the authenticated user's identity at the controller level, not only relying on the route parameter
+- Swagger UI is disabled in production
+- Environment variables are validated at boot — the application fails fast with a clear error if a required variable is missing, instead of failing unpredictably later
+
+## Known Trade-offs
+
+- **Refresh token rotation has a small race-condition window** between reading a token's state and marking it revoked. Acceptable for this project's expected traffic (no concurrent refresh requests for the same session); a production system with high concurrency would close this with a transaction and `UPDATE ... RETURNING`.
+- **The final Docker image is heavier than necessary** (~110MB instead of an expected ~60MB) due to a known issue with `npm ci --omit=dev` and the current lockfile not marking every devDependency correctly on Node 22 / npm 10–11. Documented rather than silently left as a surprise; doesn't affect runtime behavior.
