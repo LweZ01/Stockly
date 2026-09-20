@@ -374,5 +374,4 @@ Common error codes:
 
 ## Known Trade-offs
 
-- **Refresh token rotation has a small race-condition window** between reading a token's state and marking it revoked. Acceptable for this project's expected traffic (no concurrent refresh requests for the same session); a production system with high concurrency would close this with a transaction and `UPDATE ... RETURNING`.
 - **The final Docker image is heavier than necessary** (~110MB instead of an expected ~60MB) due to a known issue with `npm ci --omit=dev` and the current lockfile not marking every devDependency correctly on Node 22 / npm 10–11. Documented rather than silently left as a surprise; doesn't affect runtime behavior.
