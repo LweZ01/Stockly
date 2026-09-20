@@ -1,24 +1,30 @@
 import { Test } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module.js';
 import { UsersService } from '../../src/users/users.service.js';
 import { User } from '../../src/users/entities/user.entity.js';
 import { Role } from '../../src/common/enums/role.enum.js';
+import { HttpExceptionFilter } from '../../src/common/filters/http-exception.filter.js';
 
-export async function createTestApp(): Promise<INestApplication> {
+export async function createTestApp(): Promise<NestExpressApplication> {
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],
   }).compile();
 
-  const app = moduleRef.createNestApplication();
+  const app = moduleRef.createNestApplication<NestExpressApplication>();
+  app.use(helmet());
+  app.disable('x-powered-by');
   app.use(cookieParser());
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }),
   );
+  app.useGlobalFilters(new HttpExceptionFilter());
   await app.init();
   return app;
 }

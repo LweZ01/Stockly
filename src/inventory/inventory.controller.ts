@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { InventoryService } from './inventory.service.js';
 import { CreateMovementDto } from './dto/create-movement.dto.js';
@@ -17,6 +18,8 @@ import { Role } from '../common/enums/role.enum.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { User } from '../users/entities/user.entity.js';
 
+@ApiTags('inventory')
+@ApiBearerAuth('access-token')
 @Controller('inventory')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN)
@@ -24,6 +27,11 @@ export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
   @Post('movements')
+  @ApiOperation({
+    summary: 'Registrar un movimiento de inventario (solo ADMIN)',
+    description:
+      'Registra ENTRY, EXIT o ADJUSTMENT. El usuario que registra el movimiento se toma del token (no se envía en el body).',
+  })
   registerMovement(
     @Body() dto: CreateMovementDto,
     @CurrentUser() currentUser: User,
@@ -32,12 +40,18 @@ export class InventoryController {
   }
 
   @Get('products/:productId/stock')
+  @ApiOperation({
+    summary: 'Consultar stock actual de un producto (solo ADMIN)',
+  })
   async getStock(@Param('productId', ParseUUIDPipe) productId: string) {
     const stock = await this.inventoryService.getCurrentStock(productId);
     return { productId, stock };
   }
 
   @Get('products/:productId/movements')
+  @ApiOperation({
+    summary: 'Historial de movimientos de un producto (solo ADMIN)',
+  })
   getHistory(@Param('productId', ParseUUIDPipe) productId: string) {
     return this.inventoryService.findHistoryByProduct(productId);
   }

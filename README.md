@@ -11,8 +11,8 @@ Proyecto de portafolio: sistema de gestión de inventario con NestJS + TypeORM +
 ```
 inventory-api/
 ├── src/
-│   ├── main.ts
-│   ├── app.module.ts
+│   ├── main.ts✅
+│   ├── app.module.ts✅
 │   │
 │   ├── config/
 │   │   ├── env.ts                   # ✅ config tipada/validada al boot — única fuente de verdad (db + jwt)
@@ -22,15 +22,15 @@ inventory-api/
 │   │
 │   ├── database/
 │   │   └── migrations/
-│   │       └── (archivos generados por TypeORM CLI)
+│   │       └── (archivos generados por TypeORM CLI)✅
 │   │
 │   ├── common/
 │   │   ├── decorators/
-│   │   │   ├── roles.decorator.ts
-│   │   │   └── current-user.decorator.ts
+│   │   │   ├── roles.decorator.ts✅
+│   │   │   └── current-user.decorator.ts✅
 │   │   ├── guards/
-│   │   │   ├── jwt-auth.guard.ts
-│   │   │   └── roles.guard.ts
+│   │   │   ├── jwt-auth.guard.ts✅
+│   │   │   └── roles.guard.ts✅
 │   │   ├── filters/
 │   │   │   └── http-exception.filter.ts
 │   │   ├── interceptors/
@@ -38,66 +38,66 @@ inventory-api/
 │   │   ├── pipes/
 │   │   │   └── ❓ (pipes custom si hacen falta, opcional)
 │   │   ├── dto/
-│   │   │   └── pagination-query.dto.ts
+│   │   │   └── pagination-query.dto.ts✅
 │   │   ├── enums/
-│   │   │   └── role.enum.ts
+│   │   │   └── role.enum.ts✅
 │   │   └── utils/
-│   │       └── postgres-error.util.ts
+│   │       └── postgres-error.util.ts✅
 │   │
 │   ├── auth/
-│   │   ├── auth.module.ts            # ✅ completo
-│   │   ├── auth.controller.ts        # ✅ completo (register/login/refresh/logout)
-│   │   ├── auth.service.ts           # ✅ completo
+│   │   ├── auth.module.ts✅
+│   │   ├── auth.controller.ts✅
+│   │   ├── auth.service.ts✅
 │   │   ├── entities/
-│   │   │   └── refresh-token.entity.ts  # ✅ completo
+│   │   │   └── refresh-token.entity.ts✅
 │   │   ├── strategies/
-│   │   │   └── jwt.strategy.ts       # ✅ completo
+│   │   │   └── jwt.strategy.ts✅
 │   │   └── dto/
-│   │       ├── register.dto.ts       # ✅ completo
-│   │       └── login.dto.ts          # ✅ completo
+│   │       ├── register.dto.ts ✅
+│   │       └── login.dto.ts ✅
 │   │
 │   ├── users/
-│   │   ├── users.module.ts
-│   │   ├── users.controller.ts
-│   │   ├── users.service.ts
+│   │   ├── users.module.ts✅
+│   │   ├── users.controller.ts✅
+│   │   ├── users.service.ts✅
 │   │   ├── entities/
-│   │   │   └── user.entity.ts
+│   │   │   └── user.entity.ts✅
 │   │   └── dto/
-│   │       ├── create-user.dto.ts
-│   │       ├── update-user.dto.ts
-│   │       └── change-password.dto.ts
+│   │       ├── create-user.dto.ts✅
+│   │       ├── update-user.dto.ts✅
+│   │       └── change-password.dto.ts✅
 │   │
 │   ├── categories/
-│   │   ├── categories.module.ts
-│   │   ├── categories.controller.ts
-│   │   ├── categories.service.ts
+│   │   ├── categories.module.ts✅
+│   │   ├── categories.controller.ts✅
+│   │   ├── categories.service.ts✅
 │   │   ├── entities/
-│   │   │   └── category.entity.ts
+│   │   │   └── category.entity.ts✅
 │   │   └── dto/
-│   │       ├── create-category.dto.ts
-│   │       └── update-category.dto.ts
+│   │       ├── create-category.dto.ts✅
+│   │       └── update-category.dto.ts✅
 │   │
 │   ├── products/
-│   │   ├── products.module.ts
-│   │   ├── products.controller.ts
-│   │   ├── products.service.ts
+│   │   ├── products.module.ts✅
+│   │   ├── products.controller.ts✅
+│   │   ├── products.service.ts✅
 │   │   ├── entities/
-│   │   │   └── product.entity.ts
+│   │   │   └── product.entity.ts✅
 │   │   └── dto/
-│   │       ├── create-product.dto.ts
-│   │       ├── update-product.dto.ts
-│   │       └── product-query.dto.ts   # filtros + paginación
+│   │       ├── create-product.dto.ts✅
+│   │       ├── update-product.dto.ts✅
+│   │       └── product-query.dto.ts✅
 │   │
 │   └── inventory/
-│       ├── inventory.module.ts
-│       ├── inventory.controller.ts
-│       ├── inventory.service.ts
+│       ├── inventory.module.ts✅
+│       ├── inventory.controller.ts✅
+│       ├── inventory.service.ts✅
 │       ├── enums/
-│       │   └── movement-type.enum.ts
+│       │   └── movement-type.enum.ts✅
 │       ├── entities/
-│       │   └── inventory-movement.entity.ts   # ❓ nombre y modelo a decidir
+│       │   └── inventory-movement.entity.ts✅
 │       └── dto/
-│           └── create-movement.dto.ts
+│           └── create-movement.dto.ts✅
 │
 ├── test/
 │   ├── setup-env.ts           # ✅ carga .env.test antes de correr e2e
@@ -132,7 +132,7 @@ inventory-api/
   - [x] Los 4 `.module.ts` armados (Users, Categories, Products, Inventory) con `forFeature` y exports
   - [x] Generar y correr migración inicial con las 4 entidades — ✅ generada exitosamente (`InitSchema`), tras resolver: import circular Product↔InventoryMovement en ESM (solución: `import type` + string en decorador `@ManyToOne('Product', ...)`) y error de columna `imageUrl` (faltaba `type: 'varchar'` explícito para tipos unión con `null`)
   - ⚠️ Pendiente: correr `npm run migration:run` para aplicarla contra la base de datos
-- [ ] **Orden de trabajo actual: módulo por módulo, empezando por Products**
+- [x] **Orden de trabajo actual: módulo por módulo, empezando por Products**
   - [x] **Products** (más avanzado — entidad, DTOs y module ya listos) ← COMPLETO
     - [x] `products.service.ts`
     - [x] `products.controller.ts`
@@ -145,7 +145,7 @@ inventory-api/
   - [x] **Inventory** ← COMPLETO (el más complejo: transacciones, locks, cálculo de stock)
     - [x] `inventory.service.ts`
     - [x] `inventory.controller.ts`
-  - [ ] **Auth** (al final, depende de Users) ← EN PROGRESO, ÚLTIMO MÓDULO DE DOMINIO
+  - [x] **Auth** (al final, depende de Users) ← EN PROGRESO, ÚLTIMO MÓDULO DE DOMINIO
 - [x] **Fase 2 — Módulo Users** ✅ COMPLETA
   - [x] CRUD básico de usuarios (sin exponer password)
   - [x] Hasheo de password (bcrypt) en creación/actualización
@@ -165,7 +165,7 @@ inventory-api/
   - [x] Aplicar `JwtAuthGuard`/`RolesGuard` a Categories/Products/Users/Inventory — ✅ **PROYECTO COMPLETO**
 - [x] **Fase 4 — Módulo Categories** ✅ COMPLETA
   - [x] CRUD completo
-  - [ ] Protección con guards (solo ADMIN puede crear/editar/borrar) — pendiente hasta cerrar Auth
+  - [x] Protección con guards (solo ADMIN puede crear/editar/borrar) — pendiente hasta cerrar Auth
 - [x] **Fase 5 — Módulo Products** ✅ COMPLETA
   - [x] CRUD completo
   - [x] Relación con Category
@@ -180,7 +180,7 @@ inventory-api/
   - [x] `ValidationPipe` global con `whitelist` + `forbidNonWhitelisted`
   - [ ] Documentación Swagger completa
   - [ ] Manejo de errores consistente (formato de respuesta de error uniforme)
-- [ ] **Fase 8 — Testing** — módulos de dominio + Auth completos, falta actualizar e2e existentes tras aplicar guards
+- [x] **Fase 8 — Testing** — módulos de dominio + Auth completos, falta actualizar e2e existentes tras aplicar guards
   - [x] Tests unitarios de servicios (Vitest, no Jest) — ✅ 26 tests pasando en 5 archivos: products.service.spec.ts (4), categories.service.spec.ts (6), users.service.spec.ts (7), inventory.service.spec.ts (8, mockeando transacción/EntityManager/lock pesimista), app.controller.spec.ts (1)
   - [x] Tests e2e de los endpoints principales — ✅ **64 tests pasando en 5 archivos**: products.controller.e2e-spec.ts (14), categories.controller.e2e-spec.ts (13), users.controller.e2e-spec.ts (12), inventory.controller.e2e-spec.ts (14), auth.controller.e2e-spec.ts (11)
     - Setup: `.env.test` + `test/setup-env.ts` + `vitest.config.e2e.ts` (Vitest, no Jest — usa `unplugin-swc`) + `test/utils/test-app.ts` (bootstrap + TRUNCATE entre tests)
@@ -206,7 +206,6 @@ inventory-api/
     - `api` — depende de `postgres` con `condition: service_healthy`, variables interpoladas desde `.env` de la raíz (`DB_HOST=postgres`, no `localhost`)
     - `postgres-test` — bajo `profiles: ['test']`, opt-in con `docker compose --profile test up`, no se levanta con `up` normal
   - [x] Migraciones: decisión deliberada de **no** correrlas automáticamente al iniciar el contenedor (evita race conditions con réplicas, permite rollback independiente de API vs esquema) — se corren manualmente desde el host contra el puerto expuesto
-  - ⚠️ Deuda técnica documentada (no oculta): devDependencies coladas en la imagen final (~110MB vs ~60MB esperados) por un bug de npm 10.x/11.x con el `package-lock.json` actual y `--omit=dev`; fix futuro es regenerar el lockfile o agregar `npm prune --omit=dev` en runtime con npm 11
 - [ ] **Fase 10 — Documentación y entrega**
   - [ ] README del proyecto (para el portafolio, distinto a este plan)
   - [ ] Colección de Postman/Insomnia o uso de Swagger como única doc
@@ -316,15 +315,14 @@ inventory-api/
   - ✅ Sin guards por ahora (todo público temporalmente) — marcado con `TODO(auth)` en el código para agregar `JwtAuthGuard`/`RolesGuard`/`@Roles(ADMIN)` en POST/PATCH/DELETE cuando se implemente Auth
   - ✅ `POST /products`, `GET /products`, `GET /products/:id`, `PATCH /products/:id`, `DELETE /products/:id` (204 No Content)
   - ✅ `ParseUUIDPipe` en los `:id` para validar formato antes de llegar al service
-- [ ] `products.controller.ts`
-  - ❓ ¿Lectura pública, escritura solo ADMIN?
+- [x] `products.controller.ts`
 
 ### `inventory/`
 
 - ✅ Diseño elegido: **con historial** — `InventoryMovement` registra cada movimiento y el stock se deriva de él (opción 2 del análisis original)
 - ✅ Tipos de movimiento: `ENTRY`, `EXIT`, `ADJUSTMENT`
 - ✅ Cada movimiento guarda `user` (quién lo hizo, opcional) y `reason` (motivo, texto libre)
-- [ ] `enums/movement-type.enum.ts` — ✅ **completado**: `ENTRY = 'entry'`, `EXIT = 'exit'`, `ADJUSTMENT = 'adjustment'`
+- [x] `enums/movement-type.enum.ts` — ✅ **completado**: `ENTRY = 'entry'`, `EXIT = 'exit'`, `ADJUSTMENT = 'adjustment'`
 - [x] `entities/inventory-movement.entity.ts`
   - ✅ Campos: `id`, `type` (`MovementType`), `quantity` (siempre positivo, int), `reason` (nullable), `product` (relación obligatoria), `user` (relación opcional), `createdAt` (sin `updatedAt` — un movimiento no se edita)
   - ⚠️ **Fix aplicado**: import circular con `Product` en ESM resuelto usando `import type { Product }` + `@ManyToOne('Product', (product: Product) => product.movements)` (string en vez de `() => Product`) — este mismo patrón puede hacer falta en `Category ↔ Product` si aparece el mismo error ahí

@@ -31,6 +31,9 @@ export class ProductsService {
   }
 
   async findAll(query: ProductQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+
     const qb = this.productRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
@@ -56,12 +59,12 @@ export class ProductsService {
 
     qb.orderBy('product.createdAt', 'ASC')
       .addOrderBy('product.id', 'ASC')
-      .skip((query.page - 1) * query.limit)
-      .take(query.limit);
+      .skip((page - 1) * limit)
+      .take(limit);
 
     const [data, total] = await qb.getManyAndCount();
 
-    return { data, total, page: query.page, limit: query.limit };
+    return { data, total, page, limit };
   }
 
   async findOne(id: string): Promise<Product> {

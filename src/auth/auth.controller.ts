@@ -1,4 +1,3 @@
-// src/auth/auth.controller.ts
 import {
   Controller,
   Post,
@@ -10,6 +9,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import ms from 'ms';
 
 import { AuthService } from './auth.service.js';
@@ -19,11 +19,13 @@ import { env } from '../config/env.js';
 
 const REFRESH_TOKEN_COOKIE = 'refreshToken';
 
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @ApiOperation({ summary: 'Registrar un nuevo usuario' })
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() dto: RegisterDto) {
     const user = await this.authService.register(dto);
@@ -32,6 +34,11 @@ export class AuthController {
   }
 
   @Post('login')
+  @ApiOperation({
+    summary: 'Iniciar sesión',
+    description:
+      'Devuelve un access token en el body y setea el refresh token como cookie httpOnly.',
+  })
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() dto: LoginDto,
@@ -47,6 +54,11 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @ApiOperation({
+    summary: 'Renovar el access token',
+    description:
+      'Requiere la cookie httpOnly "refreshToken" (se envía automáticamente por el navegador; no se puede probar desde Swagger UI sin haber hecho login primero desde el mismo origen). Rota el refresh token en cada uso.',
+  })
   @HttpCode(HttpStatus.OK)
   async refresh(
     @Req() req: Request,
@@ -65,6 +77,11 @@ export class AuthController {
   }
 
   @Post('logout')
+  @ApiOperation({
+    summary: 'Cerrar sesión',
+    description:
+      'Revoca el refresh token actual (vía cookie httpOnly) y la limpia.',
+  })
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(
     @Req() req: Request,
