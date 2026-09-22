@@ -28,5 +28,5 @@ export function isAuthenticated() {
 }
 
 export function isAdmin() {
-  return currentUser?.role === 'ADMIN';
+  return currentUser?.role === 'admin';
 }

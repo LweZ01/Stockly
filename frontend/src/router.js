@@ -4,6 +4,8 @@ import { isAdmin } from './services/auth-store.js';
 
 const routes = new Map();
 
+let renderToken = 0;
+
 export function registerRoute(name, { title, render, adminOnly = false }) {
   routes.set(name, { title, render, adminOnly });
 }
@@ -18,7 +20,9 @@ function getRouteFromHash() {
   return routes.has(raw) ? raw : 'dashboard';
 }
 
-function renderCurrent() {
+async function renderCurrent() {
+  const currentToken = ++renderToken;
+
   const name = getRouteFromHash();
   const route = routes.get(name);
 
@@ -35,8 +39,10 @@ function renderCurrent() {
 
   const root = document.getElementById('view-root');
   try {
-    route.render(root);
+    await route.render(root);
+    if (currentToken !== renderToken) return;
   } catch (err) {
+    if (currentToken !== renderToken) return;
     console.error(`Error renderizando "${name}":`, err);
     root.innerHTML =
       '<p class="view-error">No se pudo cargar esta sección.</p>';

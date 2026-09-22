@@ -4,6 +4,9 @@ import './style.css';
 import { silentRefresh, logout } from './services/auth.service.js';
 import { initAuthView } from './views/auth.view.js';
 import { registerRoute, navigate, startRouter } from './router.js';
+import { initCategoriesView } from './views/categories.view.js';
+import { initProductsView } from './views/products.view.js';
+import { initInventoryView } from './views/inventory.view.js';
 
 // ------------------------------------------------------------
 // Referencias DOM
@@ -34,15 +37,15 @@ registerRoute('dashboard', {
 });
 registerRoute('products', {
   title: 'Productos',
-  render: placeholder('Productos'),
+  render: (root) => initProductsView(root),
 });
 registerRoute('categories', {
   title: 'Categorías',
-  render: placeholder('Categorías'),
+  render: (root) => initCategoriesView(root),
 });
 registerRoute('inventory', {
   title: 'Inventario',
-  render: placeholder('Inventario'),
+  render: (root) => initInventoryView(root),
   adminOnly: true,
 });
 registerRoute('users', {

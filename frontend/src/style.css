@@ -507,3 +507,113 @@ tr:last-child td {
     padding: var(--space-4);
   }
 }
+/* ============================================================
+   VIEW HEADER (título + acción principal de una vista)
+   ============================================================ */
+.view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+}
+
+.view-header h2 {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+}
+
+/* ============================================================
+   FILTERS BAR (Productos y futuras vistas con filtros)
+   ============================================================ */
+.filters-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.filters-bar input[type='search'] {
+  flex: 2;
+  min-width: 200px;
+}
+
+.filters-bar select {
+  flex: 1;
+  min-width: 160px;
+}
+
+.filters-bar input[type='number'] {
+  flex: 1;
+  min-width: 120px;
+}
+
+/* ============================================================
+   DIALOG (modales nativos — crear/editar categoría, producto, etc.)
+   ============================================================ */
+dialog {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-6);
+  width: 100%;
+  max-width: 420px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  margin: auto;
+}
+
+dialog.dialog--lg {
+  max-width: 560px;
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+dialog[open] {
+  animation: dialog-in 0.15s ease-out;
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+dialog h3 {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin-bottom: var(--space-4);
+}
+
+dialog textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+dialog .dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.product-thumb {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+  margin-right: var(--space-2);
+}
+
+.product-thumb-placeholder {
+  display: inline-block;
+  width: 32px;
+  color: var(--color-text-muted);
+}
