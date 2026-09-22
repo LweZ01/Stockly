@@ -100,92 +100,87 @@ Cerradas antes de arrancar — el resto de las fases asume esto:
      };
      ```
 
----
-
-## FASE 0 — Setup del proyecto Vite
-
-- [ ] Crear carpeta `frontend/` en la raíz del proyecto (al lado de `src/`)
-- [ ] `npm create vite@latest` dentro de `frontend/`, template **vanilla** (no vanilla-ts, salvo que quieras sumar TS — avisame si es así, cambia varias cosas)
-- [ ] Confirmar que corre: `cd frontend && npm install && npm run dev`
-- [ ] `vite.config.js`: `server.proxy` con las rutas de API (`/auth`, `/products`, `/categories`, `/users`, `/inventory`) apuntando a `http://localhost:3000` — ver el bloque de ejemplo en la sección de decisiones confirmadas arriba
-- [ ] `vite.config.js`: `build.outDir: '../client'` para que el build de producción caiga en `inventory-api/client/`
-- [ ] Borrar el boilerplate de ejemplo que trae la plantilla (`counter.js`, logos, etc.)
-- [ ] En NestJS: agregar `@nestjs/serve-static`, registrar en `app.module.ts`:
-  ```ts
-  ServeStaticModule.forRoot({
-    rootPath: join(import.meta.dirname, '..', 'client'),
-    serveRoot: '/app',
-  });
-  ```
-  Sin `exclude` — como el front vive en `/app` y la API en la raíz, no hay colisión de rutas que evitar.
-- [ ] Actualizar `.gitignore` del proyecto: agregar `frontend/node_modules`, `client/` (el build generado)
-
-**Criterio de cierre de fase**: `npm run dev` en `frontend/` levanta una página en blanco sin errores de consola, y una request de prueba (ej. `fetch('/categories')` desde la consola del navegador) le llega a tu API sin bloqueo de CORS. Por separado, con `npm run build` + tu API corriendo, `http://localhost:3000/app` sirve el frontend compilado.
+5. **Endpoint `GET /auth/me` agregado al backend.** Para el arranque
+   del frontend (`silentRefresh()`), en vez de decodificar el payload
+   del JWT y hacer un `GET /users/:id` aparte, se agregó un endpoint
+   dedicado que devuelve el usuario autenticado usando el JWT ya
+   validado por el guard. Esto mantiene al frontend desacoplado del
+   formato interno del token, y simetriza `login` y `silentRefresh`
+   (ambos setean la sesión con `{ accessToken, user }`).
 
 ---
 
-## FASE 1 — Estructura base y estilos
+## FASE 0 — Setup del proyecto Vite ✅
 
-- [ ] `index.html`: esqueleto con dos "pantallas" (auth vs app), cada una oculta/visible por clase CSS — no hace falta router de páginas reales, es una SPA de una sola página
-- [ ] `src/style.css` (o carpeta `css/` si preferís separar en varios archivos): variables de color/espaciado (`:root { --primary: ...; }`), reset básico, estilos de botones/inputs/tablas reutilizables
-- [ ] Sidebar de navegación (HTML estático por ahora, sin lógica) con los links: Dashboard, Productos, Categorías, Inventario, Usuarios, Mi perfil
-- [ ] Layout responsive básico: sidebar colapsable en mobile
-
-**Criterio de cierre**: abrís `index.html` en el navegador (vía Vite dev server) y ves el layout completo, sin JS todavía — solo maquetación.
-
----
-
-## FASE 2 — Capa de comunicación con la API
-
-Esta es la fase más importante para que todo lo demás funcione bien.
-Sugiero este orden interno:
-
-- [ ] `src/services/auth-store.js`: módulo con estado en memoria (variables privadas del módulo, no `window`, no `localStorage`) para `accessToken` y `user` actual. Exportar getters/setters: `setSession(token, user)`, `clearSession()`, `getAccessToken()`, `getUser()`, `isAuthenticated()`, `isAdmin()`
-- [ ] `src/services/api.js`: cliente `fetch` central
-  - [ ] función base que agrega automáticamente el header `Authorization: Bearer <token>` cuando hay token en el store
-  - [ ] siempre `credentials: 'include'` (para que viaje la cookie httpOnly del refresh)
-  - [ ] manejo de 401: si una request falla por token expirado, intentar `POST /auth/refresh` **una sola vez**, y si funciona, reintentar la request original con el token nuevo. Si el refresh también falla, limpiar la sesión y mandar a la pantalla de login
-  - [ ] ojo con refreshes en paralelo: si dos requests fallan con 401 al mismo tiempo, no deberían disparar dos `/auth/refresh` simultáneos — pensá cómo evitar la carrera (pista: una promesa compartida que las demás esperan)
-  - [ ] parseo uniforme de errores: tu `HttpExceptionFilter` devuelve `{ statusCode, timestamp, path, message }` — el cliente debería exponer ese `message` de forma fácil de mostrar en la UI (puede venir como string o como array si es de `class-validator`)
-- [ ] Funciones de auth específicas (pueden vivir en `api.js` o en un `auth.service.js` aparte):
-  - [ ] `login(email, password)` → llama `POST /auth/login`, guarda `accessToken` + `user` en el store
-  - [ ] `register(name, email, password)` → llama `POST /auth/register`
-  - [ ] `logout()` → llama `POST /auth/logout`, limpia el store
-  - [ ] `silentRefresh()` → llama `POST /auth/refresh` al arrancar la app; si funciona, necesitás los datos del usuario para poblar el store. Como no existe `/auth/me`, dos opciones: (a) decodificar el payload del JWT (`sub`, `email`, `role` — no es información sensible, es solo base64) y pedir `GET /users/:id` con ese `sub`, o (b) agregar un endpoint `/auth/me` a tu backend si preferís esa ruta. Decidí cuál y documentalo acá.
-- [ ] `src/services/categories.service.js`: wrappers `list()`, `getById(id)`, `create(data)`, `update(id, data)`, `remove(id)` sobre `/categories`
-- [ ] `src/services/products.service.js`: igual, pero `list(filters)` arma el query string con `name`, `categoryId`, `minPrice`, `maxPrice`, `page`, `limit`. La respuesta es siempre `{ data, total, page, limit }` (shape confirmado arriba) — no hace falta contemplar otro formato
-- [ ] `src/services/inventory.service.js`: `registerMovement(data)`, `getStock(productId)` (devuelve un `number` plano — no lo envuelvas en un objeto al consumirlo), `getHistory(productId)` (cada item ya trae `user` como objeto poblado, listo para mostrar `movement.user.name`)
-- [ ] `src/services/users.service.js`: `list()`, `getById(id)`, `update(id, data)`, `changePassword(id, data)`, `remove(id)`
-
-**Criterio de cierre**: desde la consola del navegador podés importar estos módulos (o probarlos con botones temporales) y hacer login/logout/listar categorías contra tu API real, viendo el token viajar correctamente.
+- [x] Crear carpeta `frontend/` en la raíz del proyecto (al lado de `src/`)
+- [x] `npm create vite@latest` dentro de `frontend/`, template **vanilla**
+- [x] Confirmar que corre: `cd frontend && npm install && npm run dev`
+- [x] `vite.config.js`: `server.proxy` con las rutas de API apuntando a `http://localhost:3000`
+- [x] `vite.config.js`: `build.outDir: '../client'`
+- [x] Borrar el boilerplate de ejemplo (`counter.js`, logos, etc.)
+- [x] En NestJS: agregar `@nestjs/serve-static`, registrar en `app.module.ts` con `rootPath` a `client/` y `serveRoot: '/app'`
+- [x] Actualizar `.gitignore`: `frontend/node_modules`, `client/`
 
 ---
 
-## FASE 3 — Pantallas de autenticación
+## FASE 1 — Estructura base y estilos ✅
 
-- [ ] Formulario de login: email + password, muestra error si falla, redirige a la app si funciona
-- [ ] Formulario de registro: name + email + password, redirige a login al crear la cuenta (tu backend no auto-loguea en el registro)
-- [ ] Toggle entre login/register sin recargar la página
-- [ ] Al arrancar la app (`main.js` o `app.js`): intentar `silentRefresh()` antes de decidir qué pantalla mostrar — si funciona, vas directo a la app; si falla, mostrás el login
-- [ ] Pantalla de "cargando" mientras se resuelve ese refresh inicial (para no mostrar un flash de login si en realidad el usuario ya tenía sesión)
-
-**Criterio de cierre**: podés registrarte, loguearte, recargar la página y seguir logueado (gracias al refresh silencioso), y cerrar sesión.
+- [x] `index.html`: esqueleto con dos "pantallas" (auth vs app), alternadas con `.hidden`
+- [x] `src/style.css` con variables CSS en `:root`, reset, estilos reutilizables (botones, inputs, tablas)
+- [x] Sidebar de navegación (HTML estático) con los 6 links, cada uno con `data-route` y `data-admin-only` donde corresponde
+- [x] Layout responsive: sidebar colapsable en mobile vía `@media` + clase `.sidebar--open`
 
 ---
 
-## FASE 4 — Router simple + navegación
+## FASE 2 — Capa de comunicación con la API ✅
 
-- [ ] Un router mínimo basado en `location.hash` (`#/products`, `#/categories`, etc.) — no hace falta librería, es un `Map` de nombre → función de render + un listener de `hashchange`
-- [ ] Cada ruta define si requiere rol ADMIN (`inventory` y `users` sí, según tu tabla de autorización)
-- [ ] Si un usuario no-ADMIN intenta entrar a una ruta ADMIN-only (manualmente por URL), redirigir a dashboard
-- [ ] Sidebar: resaltar el link activo, ocultar los links admin-only si el usuario no es ADMIN
-- [ ] Botón de logout en la sidebar/topbar
-
-**Criterio de cierre**: navegás entre secciones sin recargar la página, la URL cambia con el hash, y las restricciones de ADMIN se respetan aunque intentes forzar la URL.
+- [x] `src/services/auth-store.js`: estado en memoria (module-scoped, no `window`/`localStorage`) con `setSession`, `clearSession`, `getAccessToken`, `setAccessToken`, `getUser`, `isAuthenticated`, `isAdmin`
+- [x] `src/services/api.js`: cliente `fetch` central con:
+  - [x] header `Authorization: Bearer <token>` automático
+  - [x] `credentials: 'include'` siempre
+  - [x] manejo de 401 con un solo `POST /auth/refresh` y un solo reintento
+  - [x] refreshes en paralelo colapsados a una promesa compartida (`refreshPromise`)
+  - [x] `ApiError` con `status` y `body` (para leer `body.message` en la UI)
+- [x] Funciones de auth (`auth.service.js`):
+  - [x] `login(email, password)` → setea `accessToken` + `user`
+  - [x] `register(name, email, password)` → no toca el store
+  - [x] `logout()` → revoca en backend + limpia el store en `finally`
+  - [x] `silentRefresh()` → `POST /auth/refresh` + `GET /auth/me`, devuelve `null` si no había sesión
+- [x] `src/services/categories.service.js`: `list`, `getById`, `create`, `update`, `remove`
+- [x] `src/services/products.service.js`: `list(filters)` con `buildQuery`, `getById`, `create`, `update`, `remove`
+- [x] `src/services/inventory.service.js`: `registerMovement`, `getStock`, `getHistory`
+- [x] `src/services/users.service.js`: `list`, `getById`, `update`, `changePassword`, `remove`
+- [x] Backend: `GET /auth/me` agregado con guard, `@CurrentUser` y exclusión de `password` — cubierto por tests e2e (98/98 pasando)
 
 ---
 
-## FASE 5 — Vista de Categorías (CRUD completo, la más simple)
+## FASE 3 — Pantallas de autenticación ✅
+
+- [x] Formulario de login con manejo de errores del backend
+- [x] Formulario de registro con mensaje de éxito y transición a login
+- [x] Toggle entre login/register sin recargar
+- [x] `silentRefresh()` en el arranque antes de decidir pantalla
+- [x] Sin flash de login durante el refresh inicial (clase `app-loading` en `<body>` + CSS que oculta ambas pantallas hasta resolver)
+- [x] Logout wireado y funcionando end-to-end
+
+---
+
+## FASE 4 — Router simple + navegación ✅
+
+- [x] Router mínimo basado en `location.hash` con `Map` nombre → `{ title, render, adminOnly }`
+- [x] Listener de `hashchange` + render inicial al arrancar
+- [x] Chequeo `adminOnly` en cada render (lee `isAdmin()` del store, sin valor congelado)
+- [x] Hash inválido cae a dashboard
+- [x] `active` en el nav-link correspondiente + título del topbar actualizado
+- [x] `try/catch` en `route.render()` con fallback visual (`.view-error`)
+- [x] Router arrancado una sola vez (`routerStarted`) — evita duplicar el listener en re-login
+- [x] Toggle mobile de la sidebar: abrir desde topbar, cerrar desde sidebar o overlay, cerrar antes de navegar
+- [x] Sidebar: `data-admin-only` respetado vía chequeo en el router
+- [x] Botón de logout en la sidebar wireado
+
+---
+
+## FASE 5 — Vista de Categorías (CRUD completo, la más simple) ⬜
 
 Buena para validar el patrón de CRUD que vas a repetir en Products y
 en parte de Users.
@@ -202,7 +197,7 @@ en parte de Users.
 
 ---
 
-## FASE 6 — Vista de Productos (CRUD + filtros + paginación)
+## FASE 6 — Vista de Productos (CRUD + filtros + paginación) ⬜
 
 - [ ] Listado en tabla: SKU, nombre, categoría, precio, estado (activo/inactivo)
 - [ ] Filtros: input de búsqueda por nombre (con debounce, no una request por tecla), select de categoría
@@ -215,20 +210,20 @@ en parte de Users.
 
 ---
 
-## FASE 7 — Vista de Inventario (la más compleja del dominio)
+## FASE 7 — Vista de Inventario (la más compleja del dominio) ⬜
 
 - [ ] Selector de producto (dropdown con todos los productos)
 - [ ] Al seleccionar uno: mostrar stock actual (`GET /inventory/products/:id/stock`, número plano) y tabla de historial de movimientos (`GET /inventory/products/:id/movements`, más reciente primero) — la columna de usuario sale directo de `movement.user.name`/`.email`, sin requests extra
 - [ ] Formulario "Registrar movimiento": producto, tipo (ENTRY/EXIT/ADJUSTMENT), cantidad, motivo (opcional)
 - [ ] Ayuda visual en el formulario aclarando que en ADJUSTMENT la cantidad es el stock final exacto, no un delta
 - [ ] Manejo de error 400 específico cuando un EXIT pide más stock del disponible (mensaje claro, no genérico)
-- [ ] Toda esta vista es ADMIN-only a nivel de ruta (ya lo resolviste en Fase 4)
+- [ ] Toda esta vista es ADMIN-only a nivel de ruta (ya resuelto en Fase 4)
 
 **Criterio de cierre**: podés registrar los tres tipos de movimiento y ver cómo cambia el stock computado y el historial en tiempo real.
 
 ---
 
-## FASE 8 — Vista de Usuarios (matriz de permisos ADMIN/self)
+## FASE 8 — Vista de Usuarios (matriz de permisos ADMIN/self) ⬜
 
 Esta vista tiene la lógica de autorización más fina — repasá tu tabla:
 GET lista → ADMIN; GET/PATCH `:id` → ADMIN o el propio usuario; PATCH
@@ -243,7 +238,7 @@ GET lista → ADMIN; GET/PATCH `:id` → ADMIN o el propio usuario; PATCH
 
 ---
 
-## FASE 9 — Vista de Mi Perfil (accesible a cualquier usuario autenticado)
+## FASE 9 — Vista de Mi Perfil (accesible a cualquier usuario autenticado) ⬜
 
 Esta es la única vista de "usuarios" que ve un USER normal.
 
@@ -256,7 +251,7 @@ Esta es la única vista de "usuarios" que ve un USER normal.
 
 ---
 
-## FASE 10 — Dashboard
+## FASE 10 — Dashboard ⬜
 
 Dejala para el final — es la vista más simple pero tiene sentido
 construirla cuando ya existen los servicios de todos los recursos.
@@ -268,7 +263,7 @@ construirla cuando ya existen los servicios de todos los recursos.
 
 ---
 
-## FASE 11 — Pulido final
+## FASE 11 — Pulido final ⬜
 
 - [ ] Estados de carga (spinners o skeletons) mientras se resuelven las requests, para que la UI no se sienta trabada
 - [ ] Estados vacíos consistentes en todas las tablas
@@ -281,6 +276,7 @@ construirla cuando ya existen los servicios de todos los recursos.
 
 ## Notas sueltas
 
-- Nada de `localStorage`/`sessionStorage` para el access token — ya headers de autorización y ahora se justifica bien por qué: cualquier XSS podría leerlo.
+- Nada de `localStorage`/`sessionStorage` para el access token — cualquier XSS podría leerlo. Vive en memoria del módulo `auth-store.js`.
 - El refresh token nunca lo toca JS — vive solo en la cookie httpOnly, el navegador la maneja solo.
-- Cuando escribas el fetch central de la Fase 2, pensá primero en el caso feliz, después en el 401, y al final en el error de red (servidor caído) — son tres ramas distintas y conviene no mezclarlas en el mismo bloque `catch`.
+- El fetch central (`api.js`) separa tres ramas: caso feliz, 401 con refresh + reintento, y error de red — no las mezcla en el mismo bloque `catch`.
+- `silentRefresh()` devuelve `null` en el caso esperado "no había sesión previa" (401 en refresh) y lanza `ApiError` solo en fallos reales (red caída, 500). El `boot()` de `main.js` distingue ambos.

@@ -26,6 +26,7 @@ RESTful API for inventory management with role-based access control, custom JWT 
 - Documentation: Swagger (`@nestjs/swagger`)
 - Security: Helmet, CORS, cookie-parser
 - Testing: Vitest — unit tests (mocked repositories) + end-to-end tests (real Postgres instance)
+- Frontend: Vanilla JS + Vite (no framework), served by the API as static files
 - Containerization: Docker (multi-stage build) + Docker Compose
 
 ## Architecture
@@ -67,6 +68,18 @@ inventory-api/
 ├── test/
 │   └── utils/
 │       └── test-app.ts             # Shared e2e bootstrap (test app + DB cleanup + auth helpers)
+│
+├── frontend/                        # Vanilla JS + Vite (source)
+│   ├── index.html
+│   ├── vite.config.js
+│   └── src/
+│       ├── main.js
+│       ├── router.js
+│       ├── style.css
+│       ├── services/
+│       └── views/
+│
+├── public/                          # Production build output (served by NestJS at /app)
 │
 ├── Dockerfile                       # Multi-stage build (deps-prod / builder / runtime)
 ├── docker-compose.yml                # api + postgres + postgres-test (test profile, opt-in)
@@ -169,6 +182,49 @@ Role-based access control (`ADMIN` / `USER`) via `JwtAuthGuard` + `RolesGuard`, 
 | User password                 | —                          | The user themself only (not even an ADMIN) |
 
 The user who registers an inventory movement is taken from the authenticated request (`@CurrentUser()`), never from the request body.
+
+## Frontend
+
+A vanilla JS + Vite single-page app (no framework) that consumes this same API. It lives in `frontend/` as source, builds to `public/`, and is served by the API itself through `ServeStaticModule` at `/app`. Because both the API and the frontend are served from the same host and port in production (only the path differs), the httpOnly refresh cookie travels freely without CORS in that environment. In development, Vite runs on its own port and proxies API routes back to `http://localhost:3000` via `server.proxy`.
+
+### Authentication pattern
+
+The frontend applies the exact same token model the backend already documents:
+
+- **Access token in memory only.** It lives in a module-scoped variable (`auth-store.js`) and is lost on reload. It is never written to `localStorage` or `sessionStorage`, so an XSS payload can't exfiltrate it by reading persistent storage.
+- **Refresh token untouched by JS.** The httpOnly cookie is sent automatically by the browser on every `/auth/*` request (`credentials: 'include'`), but the frontend code never reads or manipulates it.
+- **Silent refresh at boot.** On startup, `silentRefresh()` attempts `POST /auth/refresh` before deciding which screen to show. If the cookie is valid, the user goes straight to the app shell; otherwise the login screen appears. A `body.app-loading` class hides both screens during this window so the login form doesn't flash for users who already had a session.
+- **Automatic refresh on 401 with concurrency collapse.** When a request fails with an expired access token, `api.js` fires a single `POST /auth/refresh` shared across all concurrent requests that failed, then retries the original request once. Without this coordination, simultaneous 401s (e.g. dashboard loading three resources at once) would trigger parallel refreshes — which, given the backend's refresh-token rotation with reuse detection, would revoke all of the user's sessions. A module-level promise (`refreshPromise`) ensures the refresh happens once.
+- **Logout always clears local state.** `logout()` calls the backend to revoke the refresh token, then clears the in-memory store in a `finally` block, so the client-side session is gone even if the network call fails.
+
+### `GET /auth/me` — endpoint added to support boot
+
+Bootstrapping the frontend needs the current user's full profile, not just the JWT payload. Rather than decoding the token in the client and issuing a second request to `GET /users/:id`, a dedicated `GET /auth/me` endpoint was added. It returns the authenticated user (with `password` stripped) using the same JWT validation as every other protected route. This keeps the frontend decoupled from the token's internal shape and makes `login` and `silentRefresh` symmetric: both end with a single `setSession(accessToken, user)` call.
+
+### Structure
+
+```
+frontend/
+├── index.html                    # Single page, two screens toggled via CSS (.hidden)
+├── vite.config.js                # API proxy + outDir to ../public
+└── src/
+    ├── main.js                   # Bootstrap: silentRefresh, screen switch, route registration, router start
+    ├── router.js                 # Hash-based router, no library
+    ├── style.css                 # CSS variables + reset + reusable components
+    ├── services/                 # API communication layer
+    │   ├── auth-store.js         # In-memory state: accessToken + current user
+    │   ├── api.js                # Central fetch: bearer, credentials, 401 refresh, ApiError
+    │   ├── auth.service.js       # login, register, logout, silentRefresh
+    │   ├── categories.service.js
+    │   ├── products.service.js
+    │   ├── inventory.service.js
+    │   └── users.service.js
+    └── views/                    # One render(root) function per route
+        ├── auth.view.js          # Login/register toggle + handlers
+        └── ...                   # dashboard, products, categories, inventory, users, profile
+```
+
+For the full build-out checklist (11 phases, from Vite setup through final polish), see [`FRONTEND_TODO.md`](./FRONTEND_TODO.md).
 
 ## Request Flow
 
@@ -307,8 +363,9 @@ Full interactive documentation (request/response schemas, example payloads, and 
 | ------ | -------------- | ------------------------------------------------------- | -------------------------- |
 | POST   | /auth/register | Registers a new user                                    | No                         |
 | POST   | /auth/login    | Authenticates a user, sets the refresh token cookie     | No                         |
-| POST   | /auth/refresh  | Rotates the refresh token and issues a new access token | No (requires valid cookie) |
-| POST   | /auth/logout   | Revokes the current refresh token                       | No (requires valid cookie) |
+| POST   | /auth/refresh  | Rotates the refresh token and issues a new access token | No (valid cookie required) |
+| POST   | /auth/logout   | Revokes the current refresh token                       | No (valid cookie required) |
+| GET    | /auth/me       | Returns the currently authenticated user                | Bearer token               |
 
 #### Categories
 
@@ -369,6 +426,7 @@ Common error codes:
 - Request body size limits (1MB) on JSON and URL-encoded payloads
 - Sensitive data (`password`) never included in API responses, enforced at the entity level (`select: false`) as well as explicitly stripped in auth responses
 - Every write to `users` password/profile endpoints is scoped to the authenticated user's identity at the controller level, not only relying on the route parameter
+- **Access token kept in memory on the client (never `localStorage`/`sessionStorage`)**, so it can't be exfiltrated via XSS reading persistent storage
 - Swagger UI is disabled in production
 - Environment variables are validated at boot — the application fails fast with a clear error if a required variable is missing, instead of failing unpredictably later
 
