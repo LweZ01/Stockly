@@ -224,7 +224,7 @@ frontend/
         └── ...                   # dashboard, products, categories, inventory, users, profile
 ```
 
-For the full build-out checklist (11 phases, from Vite setup through final polish), see [`FRONTEND_TODO.md`](./FRONTEND_TODO.md).
+For the full build-out checklist (11 phases, from Vite setup through final polish), see [`FRONTEND.md`](./FRONTEND.md).
 
 ## Request Flow
 
