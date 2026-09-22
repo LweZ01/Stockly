@@ -3,10 +3,203 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Inventory — Panel</title>
+    <title>Mi App</title>
+    <!-- El CSS lo inyecta Vite vía import './style.css' en main.js -->
   </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
+  <body class="app-loading">
+    <!-- ============================================================
+       PANTALLA 1: AUTH (login / register)
+       ============================================================ -->
+    <section id="auth-screen" class="screen">
+      <div class="auth-card">
+        <h1 class="auth-title">Mi App</h1>
+        <p class="auth-subtitle">Iniciá sesión o creá una cuenta</p>
+
+        <!-- Form de Login -->
+        <form id="login-form" class="auth-form" data-form="login">
+          <h2>Iniciar sesión</h2>
+
+          <p id="login-error" class="auth-error hidden"></p>
+          <p id="login-success" class="auth-success hidden"></p>
+
+          <label for="login-email">Email</label>
+          <input
+            type="email"
+            id="login-email"
+            name="email"
+            placeholder="tu@email.com"
+            autocomplete="email"
+            required
+          />
+
+          <label for="login-password">Contraseña</label>
+          <input
+            type="password"
+            id="login-password"
+            name="password"
+            placeholder="••••••••"
+            autocomplete="current-password"
+            required
+          />
+
+          <button type="submit" class="btn btn-primary">Ingresar</button>
+
+          <p class="auth-switch">
+            ¿No tenés cuenta?
+            <button type="button" class="link-btn" data-switch-to="register">
+              Registrate
+            </button>
+          </p>
+        </form>
+
+        <!-- Form de Register -->
+        <form id="register-form" class="auth-form hidden" data-form="register">
+          <h2>Crear cuenta</h2>
+
+          <p id="register-error" class="auth-error hidden"></p>
+
+          <label for="register-name">Nombre</label>
+          <input
+            type="text"
+            id="register-name"
+            name="name"
+            placeholder="Tu nombre"
+            autocomplete="name"
+            required
+          />
+
+          <label for="register-email">Email</label>
+          <input
+            type="email"
+            id="register-email"
+            name="email"
+            placeholder="tu@email.com"
+            autocomplete="email"
+            required
+          />
+
+          <label for="register-password">Contraseña</label>
+          <input
+            type="password"
+            id="register-password"
+            name="password"
+            placeholder="••••••••"
+            autocomplete="new-password"
+            required
+          />
+
+          <button type="submit" class="btn btn-primary">Registrarme</button>
+
+          <p class="auth-switch">
+            ¿Ya tenés cuenta?
+            <button type="button" class="link-btn" data-switch-to="login">
+              Iniciá sesión
+            </button>
+          </p>
+        </form>
+      </div>
+    </section>
+
+    <!-- ============================================================
+       PANTALLA 2: APP SHELL (sidebar + contenido)
+       ============================================================ -->
+    <section id="app-screen" class="screen hidden">
+      <div class="app-layout">
+        <!-- SIDEBAR -->
+        <aside id="sidebar" class="sidebar">
+          <div class="sidebar-header">
+            <span class="sidebar-logo">Mi App</span>
+            <button
+              type="button"
+              id="sidebar-toggle"
+              class="sidebar-toggle"
+              aria-label="Abrir/cerrar menú"
+            >
+              ☰
+            </button>
+          </div>
+
+          <nav class="sidebar-nav">
+            <ul>
+              <li>
+                <a href="#" class="nav-link" data-route="dashboard">
+                  <span class="nav-icon">🏠</span>
+                  <span class="nav-label">Dashboard</span>
+                </a>
+              </li>
+              <li>
+                <a href="#" class="nav-link" data-route="products">
+                  <span class="nav-icon">📦</span>
+                  <span class="nav-label">Productos</span>
+                </a>
+              </li>
+              <li>
+                <a href="#" class="nav-link" data-route="categories">
+                  <span class="nav-icon">🏷️</span>
+                  <span class="nav-label">Categorías</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#"
+                  class="nav-link"
+                  data-route="inventory"
+                  data-admin-only
+                >
+                  <span class="nav-icon">📊</span>
+                  <span class="nav-label">Inventario</span>
+                </a>
+              </li>
+              <li>
+                <a href="#" class="nav-link" data-route="users" data-admin-only>
+                  <span class="nav-icon">👥</span>
+                  <span class="nav-label">Usuarios</span>
+                </a>
+              </li>
+              <li>
+                <a href="#" class="nav-link" data-route="profile">
+                  <span class="nav-icon">👤</span>
+                  <span class="nav-label">Mi perfil</span>
+                </a>
+              </li>
+            </ul>
+          </nav>
+
+          <div class="sidebar-footer">
+            <div class="user-chip">
+              <span id="user-name" class="user-name">—</span>
+              <span id="user-role" class="user-role"></span>
+            </div>
+            <button type="button" id="logout-btn" class="btn btn-ghost">
+              Cerrar sesión
+            </button>
+          </div>
+        </aside>
+
+        <!-- Overlay para mobile (se muestra cuando la sidebar está abierta) -->
+        <div id="sidebar-overlay" class="sidebar-overlay hidden"></div>
+
+        <!-- ÁREA DE CONTENIDO -->
+        <div class="content-area">
+          <header class="topbar">
+            <button
+              type="button"
+              id="topbar-menu-btn"
+              class="topbar-menu-btn"
+              aria-label="Abrir menú"
+            >
+              ☰
+            </button>
+            <h1 id="view-title" class="view-title">Dashboard</h1>
+          </header>
+
+          <!-- Acá se inyectan las vistas -->
+          <main id="view-root" class="view-root"></main>
+        </div>
+      </div>
+    </section>
+
+    <!-- Punto de entrada del JS -->
+    <script type="module" src="./src/main.js"></script>
   </body>
 </html>

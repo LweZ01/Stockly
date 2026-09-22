@@ -25,8 +25,8 @@
     "migration:generate": "npm run typeorm -- migration:generate",
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
-    "migration:run:test": "dotenv -e .env.test -- typeorm-ts-node-esm -d src/config/data-source.ts migration:run",
-    "migration:revert:test": "dotenv -e .env.test -- typeorm-ts-node-esm -d src/config/data-source.ts migration:revert",
+    "migration:run:test": "node node_modules/dotenv-cli/cli.js -e .env.test -- typeorm-ts-node-esm -d src/config/data-source.ts migration:run",
+    "migration:revert:test": "node node_modules/dotenv-cli/cli.js -e .env.test -- typeorm-ts-node-esm -d src/config/data-source.ts migration:revert",
     "migration:run:prod": "npm run typeorm:prod -- migration:run",
     "migration:revert:prod": "npm run typeorm:prod -- migration:revert"
   },

@@ -1,21 +1,32 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   Res,
   Req,
   HttpCode,
   HttpStatus,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiTags,
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import ms from 'ms';
 
 import { AuthService } from './auth.service.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { env } from '../config/env.js';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
+import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import { User } from '../users/entities/user.entity.js';
 
 const REFRESH_TOKEN_COOKIE = 'refreshToken';
 
@@ -74,6 +85,21 @@ export class AuthController {
 
     this.setRefreshTokenCookie(res, refreshToken);
     return { accessToken };
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Obtener el usuario autenticado actual',
+    description:
+      'Devuelve el usuario asociado al access token del header Authorization. No requiere rol específico.',
+  })
+  @ApiOkResponse({ description: 'Usuario actual (sin password)' })
+  @ApiUnauthorizedResponse({ description: 'Token ausente o inválido' })
+  async me(@CurrentUser() user: User) {
+    const { password, ...safeUser } = user;
+    return safeUser;
   }
 
   @Post('logout')

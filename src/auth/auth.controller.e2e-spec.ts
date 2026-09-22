@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { createTestApp, truncateAll } from '../../test/utils/test-app.js';
+import { User } from '../users/entities/user.entity.js';
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
@@ -171,6 +172,63 @@ describe('AuthController (e2e)', () => {
       await request(app.getHttpServer())
         .post('/auth/refresh')
         .set('Cookie', rotatedCookie)
+        .expect(401);
+    });
+  });
+
+  describe('GET /auth/me', () => {
+    beforeEach(async () => {
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send(credentials)
+        .expect(201);
+    });
+
+    it('devuelve el usuario actual sin password (200)', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: credentials.email, password: credentials.password })
+        .expect(200);
+
+      const { accessToken } = loginRes.body;
+
+      const meRes = await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(meRes.body.email).toBe(credentials.email);
+      expect(meRes.body.name).toBe(credentials.name);
+      expect(meRes.body.id).toBeDefined();
+      expect(meRes.body.password).toBeUndefined();
+    });
+
+    it('devuelve 401 sin token', async () => {
+      await request(app.getHttpServer()).get('/auth/me').expect(401);
+    });
+
+    it('devuelve 401 con token malformado', async () => {
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Authorization', 'Bearer not-a-real-token')
+        .expect(401);
+    });
+
+    it('devuelve 401 si el usuario fue desactivado después de emitido el token', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: credentials.email, password: credentials.password })
+        .expect(200);
+
+      const { accessToken } = loginRes.body;
+
+      await dataSource
+        .getRepository(User)
+        .update({ email: credentials.email }, { isActive: false });
+
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Authorization', `Bearer ${accessToken}`)
         .expect(401);
     });
   });
