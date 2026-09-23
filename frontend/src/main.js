@@ -3,10 +3,18 @@
 import './style.css';
 import { silentRefresh, logout } from './services/auth.service.js';
 import { initAuthView } from './views/auth.view.js';
-import { registerRoute, navigate, startRouter } from './router.js';
+import {
+  registerRoute,
+  navigate,
+  startRouter,
+  refreshCurrentRoute,
+} from './router.js';
 import { initCategoriesView } from './views/categories.view.js';
 import { initProductsView } from './views/products.view.js';
 import { initInventoryView } from './views/inventory.view.js';
+import { initUsersView } from './views/users.view.js';
+import { initProfileView } from './views/profile.view.js';
+import { initDashboardView } from './views/dashboard.view.js';
 
 // ------------------------------------------------------------
 // Referencias DOM
@@ -33,7 +41,7 @@ function placeholder(title) {
 
 registerRoute('dashboard', {
   title: 'Dashboard',
-  render: placeholder('Dashboard'),
+  render: (root) => initDashboardView(root),
 });
 registerRoute('products', {
   title: 'Productos',
@@ -50,12 +58,12 @@ registerRoute('inventory', {
 });
 registerRoute('users', {
   title: 'Usuarios',
-  render: placeholder('Usuarios'),
+  render: (root) => initUsersView(root),
   adminOnly: true,
 });
 registerRoute('profile', {
   title: 'Mi perfil',
-  render: placeholder('Mi perfil'),
+  render: (root) => initProfileView(root),
 });
 
 // ------------------------------------------------------------
@@ -78,6 +86,8 @@ function showAppScreen(user) {
   if (!routerStarted) {
     startRouter();
     routerStarted = true;
+  } else {
+    refreshCurrentRoute();
   }
 }
 

@@ -49,6 +49,10 @@ async function renderCurrent() {
   }
 }
 
+export function refreshCurrentRoute() {
+  renderCurrent();
+}
+
 export function startRouter() {
   window.addEventListener('hashchange', renderCurrent);
   renderCurrent();

@@ -1,30 +1,36 @@
 /* ============================================================
-   VARIABLES
+   VARIABLES — Dirección "Ledger": herramienta de trabajo,
+   precisión numérica antes que brillo decorativo.
    ============================================================ */
 :root {
   /* Colores */
-  --color-primary: #4f46e5;
-  --color-primary-hover: #4338ca;
-  --color-primary-light: #eef2ff;
+  --color-primary: #2e5943;
+  --color-primary-hover: #21402f;
+  --color-primary-light: #e7efe9;
 
-  --color-bg: #f9fafb;
+  --color-bg: #fafaf8;
   --color-surface: #ffffff;
-  --color-surface-alt: #f3f4f6;
+  --color-surface-alt: #f2f1ed;
 
-  --color-border: #e5e7eb;
-  --color-border-strong: #d1d5db;
+  --color-border: #e8e6e0;
+  --color-border-strong: #d3d0c7;
 
-  --color-text: #111827;
-  --color-text-muted: #6b7280;
-  --color-text-inverse: #ffffff;
+  --color-text: #1c1b1f;
+  --color-text-muted: #6b6862;
+  --color-text-inverse: #fafaf8;
 
-  --color-danger: #dc2626;
-  --color-success: #16a34a;
-  --color-warning: #d97706;
+  --color-danger: #b3402a;
+  --color-danger-light: #f8e9e5;
+  --color-success: #2e5943;
+  --color-success-light: #e7efe9;
+  --color-warning: #9a6a1f;
 
   /* Tipografía */
   --font-sans:
-    system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica,
+    Arial, sans-serif;
+  --font-mono:
+    'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
   --font-size-lg: 1.125rem;
@@ -39,19 +45,21 @@
   --space-6: 2rem;
 
   /* Bordes */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
 
   /* Sombras */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 1px 2px rgba(28, 27, 31, 0.06);
+  --shadow-md: 0 2px 8px rgba(28, 27, 31, 0.08);
+  --shadow-lg: 0 12px 32px rgba(28, 27, 31, 0.16);
 
   /* Layout */
-  --sidebar-width: 240px;
+  --sidebar-width: 64px;
   --topbar-height: 56px;
-  --transition: 0.2s ease;
+  --drawer-width: 420px;
+  --drawer-width-lg: 560px;
+  --transition: 0.16s ease;
 }
 
 /* ============================================================
@@ -116,9 +124,16 @@ body.app-loading #app-screen {
 .view-error {
   padding: var(--space-4);
   color: var(--color-danger);
-  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  background: var(--color-danger-light);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
+}
+
+/* Datos numéricos (SKU, precios, cantidades, IDs) siempre en mono,
+   alineados a la derecha cuando están en una celda de tabla. */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ============================================================
@@ -151,10 +166,12 @@ body.app-loading #app-screen {
 .btn-ghost {
   background: transparent;
   color: var(--color-text-muted);
+  border-color: var(--color-border);
 }
 .btn-ghost:hover {
   background: var(--color-surface-alt);
   color: var(--color-text);
+  border-color: var(--color-border-strong);
 }
 
 .link-btn {
@@ -233,6 +250,7 @@ select:focus {
   font-size: var(--font-size-xl);
   font-weight: 700;
   text-align: center;
+  letter-spacing: -0.01em;
 }
 
 .auth-subtitle {
@@ -268,17 +286,19 @@ select:focus {
 .auth-error {
   font-size: var(--font-size-sm);
   color: var(--color-danger);
-  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  background: var(--color-danger-light);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
+  border-left: 3px solid var(--color-danger);
 }
 
 .auth-success {
   font-size: var(--font-size-sm);
   color: var(--color-success);
-  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+  background: var(--color-success-light);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
+  border-left: 3px solid var(--color-success);
 }
 
 /* ============================================================
@@ -289,120 +309,198 @@ select:focus {
   min-height: 100vh;
 }
 
-/* --- SIDEBAR --- */
+/* --- SIDEBAR (solo-íconos, con tooltip por data-tooltip) --- */
 .sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
-  background: var(--color-surface);
-  border-right: 1px solid var(--color-border);
+  background: var(--color-text);
   display: flex;
   flex-direction: column;
-  padding: var(--space-4);
+  align-items: center;
+  padding: var(--space-3) 0;
 }
 
 .sidebar-header {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: var(--space-4);
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
+  width: 100%;
 }
 
 .sidebar-logo {
   font-weight: 700;
-  font-size: var(--font-size-lg);
-  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+  color: var(--color-text-inverse);
+  letter-spacing: 0.02em;
 }
 
 .sidebar-toggle {
   display: none;
-  font-size: 1.25rem;
-  color: var(--color-text-muted);
+  color: var(--color-text-inverse);
+  opacity: 0.7;
 }
 
 .sidebar-nav {
   flex: 1;
+  width: 100%;
 }
 
 .sidebar-nav ul {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--space-1);
 }
 
+/* Cada link es un cuadrado de ícono centrado; el label de texto
+   (.nav-label) se oculta visualmente y solo aparece como tooltip. */
 .nav-link {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  justify-content: center;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  color: rgba(250, 250, 248, 0.6);
   transition:
     background var(--transition),
     color var(--transition);
 }
 
 .nav-link:hover {
-  background: var(--color-surface-alt);
-  color: var(--color-text);
+  background: rgba(250, 250, 248, 0.08);
+  color: var(--color-text-inverse);
 }
 
 .nav-link.active {
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-  font-weight: 600;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
 }
 
 .nav-icon {
-  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-label {
+  /* Oculto visualmente pero accesible para lectores de pantalla */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Tooltip nativo vía data-tooltip, aparece a la derecha del ícono */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + var(--space-2));
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  background: var(--color-text);
+  color: var(--color-text-inverse);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--transition),
+    transform var(--transition);
+  z-index: 60;
+  box-shadow: var(--shadow-md);
+}
+
+[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
 }
 
 /* --- SIDEBAR FOOTER --- */
 .sidebar-footer {
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid rgba(250, 250, 248, 0.12);
+  width: 100%;
 }
 
-/* --- USER CHIP --- */
+/* --- USER CHIP (reducido a iniciales, con tooltip del nombre/rol) --- */
 .user-chip {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-surface-alt);
-  border-radius: var(--radius-md);
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-size: 0.75rem;
+  font-weight: 600;
+  overflow: hidden;
 }
 
 .user-name {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* El texto completo se mantiene en el DOM (main.js sigue pintando
+     esto) pero no se muestra: solo se ve la inicial via ::first-letter
+     no es viable en JS, así que mostramos el texto real pero angosto. */
+  font-size: 0.7rem;
+  line-height: 1;
 }
 
 .user-role {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  display: none;
 }
 
 .sidebar-footer .btn {
-  width: 100%;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  color: rgba(250, 250, 248, 0.6);
+}
+
+.sidebar-footer .btn:hover {
+  background: rgba(250, 250, 248, 0.08);
+  color: var(--color-text-inverse);
+}
+
+.sidebar-footer .btn .nav-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* --- OVERLAY (mobile) --- */
 .sidebar-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(28, 27, 31, 0.5);
   z-index: 40;
 }
 
@@ -426,13 +524,13 @@ select:focus {
 
 .topbar-menu-btn {
   display: none;
-  font-size: 1.25rem;
   color: var(--color-text-muted);
 }
 
 .view-title {
   font-size: var(--font-size-lg);
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .view-root {
@@ -442,7 +540,49 @@ select:focus {
 }
 
 /* ============================================================
-   TABLAS (base para las vistas de productos/usuarios, etc.)
+   VIEW HEADER (título + acción principal de una vista)
+   ============================================================ */
+.view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+}
+
+.view-header h2 {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* ============================================================
+   FILTERS BAR
+   ============================================================ */
+.filters-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.filters-bar input[type='search'] {
+  flex: 2;
+  min-width: 200px;
+}
+
+.filters-bar select {
+  flex: 1;
+  min-width: 160px;
+}
+
+.filters-bar input[type='number'] {
+  flex: 1;
+  min-width: 120px;
+  font-family: var(--font-mono);
+}
+
+/* ============================================================
+   TABLAS
    ============================================================ */
 table {
   width: 100%;
@@ -465,13 +605,182 @@ th {
   background: var(--color-surface-alt);
   font-weight: 600;
   color: var(--color-text-muted);
-  text-transform: uppercase;
   font-size: 0.75rem;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--color-border-strong);
 }
 
 tr:last-child td {
   border-bottom: none;
+}
+
+tbody tr:hover {
+  background: var(--color-surface-alt);
+}
+
+/* Columnas numéricas (SKU, precio, cantidad, stock) en mono,
+   alineadas a la derecha para que los dígitos se lean en columna. */
+td.num,
+th.num {
+  font-family: var(--font-mono);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.product-thumb {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+  margin-right: var(--space-2);
+  border: 1px solid var(--color-border);
+}
+
+.product-thumb-placeholder {
+  display: inline-block;
+  width: 32px;
+  color: var(--color-text-muted);
+}
+
+/* ============================================================
+   DRAWER (panel lateral — reemplaza el <dialog> centrado para
+   crear/editar, y también el diálogo de confirmación)
+   ============================================================ */
+dialog.drawer {
+  margin: 0;
+  padding: 0;
+  border: none;
+  max-width: var(--drawer-width);
+  width: 100%;
+  height: 100vh;
+  max-height: 100vh;
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: auto;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+}
+
+dialog.drawer.drawer--lg {
+  max-width: var(--drawer-width-lg);
+}
+
+dialog.drawer::backdrop {
+  background: rgba(28, 27, 31, 0.4);
+}
+
+/* Animación de entrada desde la derecha */
+dialog.drawer[open] {
+  animation: drawer-in 0.2s ease-out;
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.drawer-body {
+  padding: var(--space-6);
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.drawer-body h3 {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.drawer-body textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.drawer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+}
+
+/* Diálogo de confirmación: mismo <dialog> pero angosto y centrado
+   verticalmente en el drawer en vez de ocupar toda la altura —
+   una confirmación no necesita el alto completo de pantalla. */
+dialog.drawer.drawer--confirm {
+  height: auto;
+  max-height: calc(100vh - var(--space-6) * 2);
+  top: 50%;
+  transform: translateY(-50%);
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+}
+
+dialog.drawer.drawer--confirm[open] {
+  animation: drawer-confirm-in 0.2s ease-out;
+}
+
+@keyframes drawer-confirm-in {
+  from {
+    transform: translateY(-50%) translateX(100%);
+  }
+  to {
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+/* ============================================================
+   DASHBOARD CARDS
+   ============================================================ */
+.dashboard-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.dashboard-card {
+  flex: 1;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  text-align: left;
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition);
+}
+
+.dashboard-card:not(.dashboard-card--static):hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-card-value {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--color-primary);
+}
+
+.dashboard-card-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }
 
 /* ============================================================
@@ -506,114 +815,9 @@ tr:last-child td {
   .view-root {
     padding: var(--space-4);
   }
-}
-/* ============================================================
-   VIEW HEADER (título + acción principal de una vista)
-   ============================================================ */
-.view-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-5);
-}
 
-.view-header h2 {
-  font-size: var(--font-size-xl);
-  font-weight: 700;
-}
-
-/* ============================================================
-   FILTERS BAR (Productos y futuras vistas con filtros)
-   ============================================================ */
-.filters-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
-}
-
-.filters-bar input[type='search'] {
-  flex: 2;
-  min-width: 200px;
-}
-
-.filters-bar select {
-  flex: 1;
-  min-width: 160px;
-}
-
-.filters-bar input[type='number'] {
-  flex: 1;
-  min-width: 120px;
-}
-
-/* ============================================================
-   DIALOG (modales nativos — crear/editar categoría, producto, etc.)
-   ============================================================ */
-dialog {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  padding: var(--space-6);
-  width: 100%;
-  max-width: 420px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  margin: auto;
-}
-
-dialog.dialog--lg {
-  max-width: 560px;
-}
-
-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.4);
-}
-
-dialog[open] {
-  animation: dialog-in 0.15s ease-out;
-}
-
-@keyframes dialog-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
+  dialog.drawer,
+  dialog.drawer.drawer--lg {
+    max-width: 100%;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-dialog h3 {
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  margin-bottom: var(--space-4);
-}
-
-dialog textarea {
-  min-height: 80px;
-  resize: vertical;
-}
-
-dialog .dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-}
-
-.product-thumb {
-  width: 32px;
-  height: 32px;
-  object-fit: cover;
-  border-radius: var(--radius-sm);
-  vertical-align: middle;
-  margin-right: var(--space-2);
-}
-
-.product-thumb-placeholder {
-  display: inline-block;
-  width: 32px;
-  color: var(--color-text-muted);
 }
