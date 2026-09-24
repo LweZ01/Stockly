@@ -1,5 +1,8 @@
 import { inventoryService } from '../services/inventory.service.js';
 import { productsService } from '../services/products.service.js';
+import { escapeHtml } from '../ui/escape.js';
+import { getInitials, formatDateTime } from '../ui/format.js';
+import { getErrorMessage } from '../ui/errors.js';
 
 const QUANTITY_HELP = {
   entry: 'Cantidad a sumar al stock actual.',
@@ -30,6 +33,7 @@ export async function initInventoryView(root) {
     </div>
 
     <p id="inventory-success" class="auth-success hidden"></p>
+    <p id="inventory-error" class="auth-error hidden"></p>
 
     <div class="inventory-layout">
       <!-- Columna izquierda: registro de movimiento -->
@@ -176,11 +180,13 @@ export async function initInventoryView(root) {
   const quantityHelp = root.querySelector('#quantity-help');
   const formError = root.querySelector('#movement-form-error');
   const successMsg = root.querySelector('#inventory-success');
+  const errorMsg = root.querySelector('#inventory-error');
 
   // --- Estado ---
   let selectedProduct = null;
   let searchTimeout = null;
-  let searchAbortController = null;
+  let searchSeq = 0;
+  let selectSeq = 0;
 
   // --- Helpers ---
   function showSuccess(message) {
@@ -189,26 +195,14 @@ export async function initInventoryView(root) {
     setTimeout(() => successMsg.classList.add('hidden'), 2500);
   }
 
-  function getInitials(name) {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .substring(0, 2)
-      .toUpperCase();
+  function showError(message) {
+    errorMsg.textContent = message;
+    errorMsg.classList.remove('hidden');
+    setTimeout(() => errorMsg.classList.add('hidden'), 4000);
   }
 
   function updateQuantityHelp() {
     quantityHelp.textContent = QUANTITY_HELP[typeSelect.value] ?? '';
-  }
-
-  function formatDateTime(isoString) {
-    return new Date(isoString).toLocaleString('es-AR', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   }
 
   // --- Dropdown de resultados ---
@@ -224,11 +218,11 @@ export async function initInventoryView(root) {
     searchResultsEl.innerHTML = products
       .map(
         (p) => `
-        <button type="button" class="search-result-item" data-product-id="${p.id}">
-          <span class="search-result-thumb">${getInitials(p.name)}</span>
+        <button type="button" class="search-result-item" data-product-id="${escapeHtml(p.id)}">
+          <span class="search-result-thumb">${escapeHtml(getInitials(p.name))}</span>
           <span class="search-result-text">
-            <span class="search-result-name">${p.name}</span>
-            <span class="search-result-sku code">${p.sku}</span>
+            <span class="search-result-name">${escapeHtml(p.name)}</span>
+            <span class="search-result-sku code">${escapeHtml(p.sku)}</span>
           </span>
         </button>
       `,
@@ -243,35 +237,41 @@ export async function initInventoryView(root) {
   }
 
   async function performSearch(query) {
+    const seq = ++searchSeq;
+
     if (!query.trim()) {
       hideSearchResults();
       return;
     }
-
-    // Cancelar la búsqueda anterior si todavía está en vuelo
-    if (searchAbortController) searchAbortController.abort();
-    searchAbortController = new AbortController();
 
     try {
       const response = await productsService.list({
         name: query.trim(),
         limit: 8,
       });
+      if (seq !== searchSeq) return; // llegó una búsqueda más nueva
       showSearchResults(response.data);
     } catch {
       // Silencioso: si falla la búsqueda, no rompemos la UX.
-      hideSearchResults();
+      if (seq === searchSeq) hideSearchResults();
     }
   }
 
   // --- Selección de producto ---
   async function selectProduct(productId) {
+    const seq = ++selectSeq;
+
     let product;
     try {
       product = await productsService.getById(productId);
-    } catch {
+    } catch (err) {
+      if (seq === selectSeq) {
+        showError(getErrorMessage(err, 'No se pudo cargar el producto.'));
+      }
       return;
     }
+
+    if (seq !== selectSeq) return; // el usuario ya eligió otro producto
 
     selectedProduct = product;
 
@@ -295,6 +295,7 @@ export async function initInventoryView(root) {
   }
 
   function clearSelection() {
+    selectSeq++; // invalida cualquier getById en vuelo
     selectedProduct = null;
     searchInput.value = '';
     hideSearchResults();
@@ -322,11 +323,15 @@ export async function initInventoryView(root) {
         inventoryService.getHistory(productId),
       ]);
     } catch {
+      if (selectedProduct?.id !== productId) return;
       selectedStockValue.textContent = 'Error';
       movementsTbody.innerHTML =
         '<tr><td colspan="5" class="view-error">No se pudo cargar el historial.</td></tr>';
       return;
     }
+
+    // El usuario ya cambió de producto mientras cargaba: descartar.
+    if (selectedProduct?.id !== productId) return;
 
     selectedStockValue.textContent = stockResponse.stock;
 
@@ -351,10 +356,10 @@ export async function initInventoryView(root) {
     return `
       <tr>
         <td class="code">${fecha}</td>
-        <td><span class="badge ${typeClass}">${typeLabel}</span></td>
+        <td><span class="badge ${typeClass}">${escapeHtml(typeLabel)}</span></td>
         <td class="num">${quantityDisplay}</td>
-        <td>${usuario}</td>
-        <td>${movement.reason ?? '—'}</td>
+        <td>${escapeHtml(usuario)}</td>
+        <td>${escapeHtml(movement.reason ?? '—')}</td>
       </tr>
     `;
   }
@@ -389,8 +394,10 @@ export async function initInventoryView(root) {
       await loadStockAndHistory(selectedProduct.id);
       showSuccess('Movimiento registrado.');
     } catch (err) {
-      formError.textContent =
-        err.body?.message ?? 'Ocurrió un error, intentá de nuevo.';
+      formError.textContent = getErrorMessage(
+        err,
+        'Ocurrió un error, intentá de nuevo.',
+      );
       formError.classList.remove('hidden');
     } finally {
       submitBtn.disabled = false;
@@ -424,11 +431,12 @@ export async function initInventoryView(root) {
   });
 
   // Click fuera del buscador: cerrar dropdown
-  document.addEventListener('click', (e) => {
+  function onDocumentClick(e) {
     if (!searchWrapper.contains(e.target)) {
       hideSearchResults();
     }
-  });
+  }
+  document.addEventListener('click', onDocumentClick);
 
   // Botón ✕ para deseleccionar
   selectedClearBtn.addEventListener('click', clearSelection);
@@ -439,4 +447,10 @@ export async function initInventoryView(root) {
 
   // Init
   updateQuantityHelp();
+
+  // --- Cleanup ---
+  return () => {
+    document.removeEventListener('click', onDocumentClick);
+    clearTimeout(searchTimeout);
+  };
 }

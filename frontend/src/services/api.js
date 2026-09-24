@@ -1,4 +1,9 @@
-import { getAccessToken, setAccessToken, clearSession } from './auth-store.js';
+import {
+  getAccessToken,
+  setAccessToken,
+  clearSession,
+  getSessionVersion,
+} from './auth-store.js';
 
 const BASE_URL = '';
 
@@ -47,13 +52,26 @@ export async function rawRequest(path, options = {}) {
 
 function tryRefresh() {
   if (!refreshPromise) {
+    const version = getSessionVersion();
+
     refreshPromise = rawRequest('/auth/refresh', { method: 'POST' })
       .then(({ res, body }) => {
+        // Hubo logout/login mientras el refresh estaba en vuelo: descartar
+        if (getSessionVersion() !== version) {
+          throw new ApiError(401, { message: 'Sesión cambiada' });
+        }
         if (!res.ok) {
           throw new ApiError(res.status, body);
         }
         setAccessToken(body.accessToken);
         return body.accessToken;
+      })
+      .catch((err) => {
+        if (err instanceof ApiError && getSessionVersion() === version) {
+          clearSession();
+          window.dispatchEvent(new Event('auth:expired'));
+        }
+        throw err;
       })
       .finally(() => {
         refreshPromise = null;
@@ -73,12 +91,11 @@ async function request(path, { method = 'GET', body, retry = true } = {}) {
   const isAuthEndpoint = path === '/auth/refresh' || path === '/auth/login';
 
   if (res.status === 401 && retry && !isAuthEndpoint) {
-    try {
-      await tryRefresh();
-    } catch {
-      clearSession();
-      throw new ApiError(401, { message: 'Sesión expirada' });
-    }
+    // Si el refresh falla, el error se propaga tal cual:
+    // - ApiError: tryRefresh ya limpió la sesión y emitió 'auth:expired'.
+    // - Error de red (TypeError): la sesión NO se toca, porque una red
+    //   caída no significa que la sesión haya muerto.
+    await tryRefresh();
     return request(path, { method, body, retry: false });
   }
 

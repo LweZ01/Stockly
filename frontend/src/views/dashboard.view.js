@@ -4,6 +4,8 @@ import { usersService } from '../services/users.service.js';
 import { inventoryService } from '../services/inventory.service.js';
 import { getUser, isAdmin } from '../services/auth-store.js';
 import { navigate } from '../router.js';
+import { escapeHtml } from '../ui/escape.js';
+import { getInitials, formatRelativeTime } from '../ui/format.js';
 
 export async function initDashboardView(root) {
   const user = getUser();
@@ -12,7 +14,7 @@ export async function initDashboardView(root) {
     <div class="view-header">
       <div>
         <h2>Dashboard</h2>
-        <p class="view-subtitle">Bienvenido de nuevo, ${user.name}.</p>
+        <p class="view-subtitle">Bienvenido de nuevo, ${escapeHtml(user.name)}.</p>
       </div>
     </div>
 
@@ -100,58 +102,43 @@ export async function initDashboardView(root) {
   });
 
   // --- Helpers ---
-  function getInitials(name) {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .substring(0, 2)
-      .toUpperCase();
-  }
-
-  function formatRelativeTime(isoString) {
-    const date = new Date(isoString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMin = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMin < 1) return 'Ahora mismo';
-    if (diffMin < 60) return `Hace ${diffMin} min`;
-    if (diffHours < 24) return `Hace ${diffHours} h`;
-    if (diffDays === 1) return 'Ayer';
-    if (diffDays < 7) return `Hace ${diffDays} días`;
-    return date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
-  }
-
   function getMovementBadge(type) {
     const map = {
-      ENTRY: { label: 'Entrada', class: 'badge--active' },
-      EXIT: { label: 'Salida', class: 'badge--inactive' },
-      ADJUSTMENT: { label: 'Ajuste', class: 'badge--admin' },
+      entry: { label: 'Entrada', class: 'badge--active' },
+      exit: { label: 'Salida', class: 'badge--inactive' },
+      adjustment: { label: 'Ajuste', class: 'badge--admin' },
     };
     return map[type] ?? { label: type, class: 'badge--user' };
   }
 
   function renderActivityItem(movement) {
-    const initials = getInitials(movement.user?.name ?? 'Sistema');
+    const userName = movement.user?.name ?? 'Sistema';
+    const initials = getInitials(userName);
     const badge = getMovementBadge(movement.type);
+
     const sign =
-      movement.type === 'ENTRY' ? '+' : movement.type === 'EXIT' ? '−' : '';
+      movement.type === 'entry' ? '+' : movement.type === 'exit' ? '−' : '';
+
+    const quantityClass =
+      movement.type === 'entry'
+        ? 'is-positive'
+        : movement.type === 'exit'
+          ? 'is-negative'
+          : 'is-neutral';
+
     const quantityText = `${sign}${movement.quantity}`;
 
     return `
       <div class="activity-item">
-        <div class="activity-avatar">${initials}</div>
+        <div class="activity-avatar">${escapeHtml(initials)}</div>
         <div class="activity-content">
           <div class="activity-line">
-            <strong>${movement.user?.name ?? 'Sistema'}</strong>
+            <strong>${escapeHtml(userName)}</strong>
             <span class="activity-action">registró una ${badge.label.toLowerCase()}</span>
           </div>
           <div class="activity-meta">
-            <span class="activity-product">${movement.product?.name ?? 'Producto eliminado'}</span>
-            <span class="activity-quantity ${movement.type === 'EXIT' ? 'is-negative' : 'is-positive'}">
+            <span class="activity-product">${escapeHtml(movement.product?.name ?? 'Producto eliminado')}</span>
+            <span class="activity-quantity ${quantityClass}">
               ${quantityText}
             </span>
           </div>

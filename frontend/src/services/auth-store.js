@@ -1,14 +1,17 @@
 let accessToken = null;
 let currentUser = null;
+let sessionVersion = 0;
 
 export function setSession(token, user) {
   accessToken = token;
   currentUser = user;
+  sessionVersion++;
 }
 
 export function clearSession() {
   accessToken = null;
   currentUser = null;
+  sessionVersion++;
 }
 
 export function getAccessToken() {
@@ -29,4 +32,8 @@ export function isAuthenticated() {
 
 export function isAdmin() {
   return currentUser?.role === 'admin';
+}
+
+export function getSessionVersion() {
+  return sessionVersion;
 }

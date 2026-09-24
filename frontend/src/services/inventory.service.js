@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { buildQuery } from './query.js';
 
 export const inventoryService = {
   registerMovement: (data) => api.post('/inventory/movements', data),
@@ -6,7 +7,6 @@ export const inventoryService = {
   getHistory: (productId) =>
     api.get(`/inventory/products/${productId}/movements`),
 
-  async getRecentMovements(limit = 10) {
-    return api.get(`/inventory/movements/recent?limit=${limit}`);
-  },
+  getRecentMovements: (limit = 10) =>
+    api.get(`/inventory/movements/recent${buildQuery({ limit })}`),
 };

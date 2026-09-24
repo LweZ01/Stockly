@@ -1216,6 +1216,10 @@ dialog.drawer.drawer--confirm[open] {
   background: var(--color-danger-light);
 }
 
+.activity-quantity.is-neutral {
+  color: var(--color-text-muted);
+}
+
 .activity-time {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
@@ -1594,6 +1598,7 @@ dialog.confirm-dialog .dialog-actions {
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

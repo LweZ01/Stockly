@@ -1,17 +1,14 @@
 import { usersService } from '../services/users.service.js';
 import { getUser } from '../services/auth-store.js';
+import { escapeHtml } from '../ui/escape.js';
+import { getInitials, formatDate, formatDateTimeShort } from '../ui/format.js';
 
 export async function initProfileView(root) {
   const user = getUser();
   const sessionStart = localStorage.getItem('lastLogin');
 
   // Generar iniciales para el avatar
-  const initials = user.name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .substring(0, 2)
-    .toUpperCase();
+  const initials = getInitials(user.name);
 
   root.innerHTML = `
     <div class="view-header">
@@ -31,9 +28,9 @@ export async function initProfileView(root) {
         </div>
 
         <div class="profile-avatar-section">
-          <div class="profile-avatar">${initials}</div>
+          <div class="profile-avatar">${escapeHtml(initials)}</div>
           <div>
-            <p class="profile-avatar-name">${user.name}</p>
+            <p class="profile-avatar-name">${escapeHtml(user.name)}</p>
             <p class="profile-avatar-role">${user.role === 'admin' ? 'Administrador' : 'Usuario'}</p>
           </div>
         </div>
@@ -44,12 +41,12 @@ export async function initProfileView(root) {
 
           <div class="form-group">
             <label for="profile-name">Nombre completo</label>
-            <input id="profile-name" name="name" type="text" required maxlength="150" value="${user.name}" />
+            <input id="profile-name" name="name" type="text" required maxlength="150" value="${escapeHtml(user.name)}" />
           </div>
 
           <div class="form-group">
             <label for="profile-email">Email</label>
-            <input id="profile-email" name="email" type="email" value="${user.email}" disabled />
+            <input id="profile-email" name="email" type="email" value="${escapeHtml(user.email)}" disabled />
             <small class="form-help">El email no se puede modificar.</small>
           </div>
 
@@ -101,8 +98,8 @@ export async function initProfileView(root) {
         <div class="account-details">
           <div class="account-detail-row">
             <span class="account-detail-label">ID de usuario</span>
-            <span class="account-detail-value num" title="${user.id}">
-              ${user.id ? user.id.substring(0, 8) + '...' : '—'}
+            <span class="account-detail-value num" title="${escapeHtml(user.id ?? '')}">
+              ${user.id ? escapeHtml(user.id.substring(0, 8)) + '...' : '—'}
             </span>
           </div>
 
@@ -116,14 +113,14 @@ export async function initProfileView(root) {
           <div class="account-detail-row">
             <span class="account-detail-label">Sesión actual</span>
             <span class="account-detail-value num">
-              ${sessionStart ? new Date(sessionStart).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+              ${formatDateTimeShort(sessionStart)}
             </span>
           </div>
 
           <div class="account-detail-row">
             <span class="account-detail-label">Miembro desde</span>
             <span class="account-detail-value num">
-              ${user.createdAt ? new Date(user.createdAt).toLocaleDateString('es-AR') : '—'}
+              ${formatDate(user.createdAt)}
             </span>
           </div>
         </div>
@@ -171,13 +168,7 @@ export async function initProfileView(root) {
       const avatarEl = root.querySelector('.profile-avatar');
       if (avatarNameEl) avatarNameEl.textContent = updatedUser.name;
       if (avatarEl) {
-        const newInitials = updatedUser.name
-          .split(' ')
-          .map((n) => n[0])
-          .join('')
-          .substring(0, 2)
-          .toUpperCase();
-        avatarEl.textContent = newInitials;
+        avatarEl.textContent = getInitials(updatedUser.name);
       }
 
       showSuccess(profileSuccess, 'Datos actualizados.');

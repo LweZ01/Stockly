@@ -1,6 +1,9 @@
 import { usersService } from '../services/users.service.js';
 import { getUser } from '../services/auth-store.js';
 import { confirmDialog } from '../ui/confirm-dialog.js';
+import { escapeHtml } from '../ui/escape.js';
+import { getInitials, formatDate } from '../ui/format.js';
+import { getErrorMessage } from '../ui/errors.js';
 
 export async function initUsersView(root) {
   root.innerHTML = `
@@ -12,6 +15,7 @@ export async function initUsersView(root) {
     </div>
 
     <p id="users-success" class="auth-success hidden"></p>
+    <p id="users-error" class="auth-error hidden"></p>
 
     <div class="table-wrapper">
       <table>
@@ -60,25 +64,23 @@ export async function initUsersView(root) {
   const form = root.querySelector('#user-form');
   const formError = root.querySelector('#user-form-error');
   const successMsg = root.querySelector('#users-success');
+  const errorMsg = root.querySelector('#users-error');
   const tbody = root.querySelector('#users-tbody');
   const cancelBtn = root.querySelector('#user-drawer-cancel');
 
   let currentUsers = [];
 
   // --- Helpers ---
-  function getInitials(name) {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .substring(0, 2)
-      .toUpperCase();
-  }
-
   function showSuccess(message) {
     successMsg.textContent = message;
     successMsg.classList.remove('hidden');
     setTimeout(() => successMsg.classList.add('hidden'), 2500);
+  }
+
+  function showError(message) {
+    errorMsg.textContent = message;
+    errorMsg.classList.remove('hidden');
+    setTimeout(() => errorMsg.classList.add('hidden'), 4000);
   }
 
   // --- Render de fila ---
@@ -86,19 +88,19 @@ export async function initUsersView(root) {
     const loggedInUser = getUser();
     const esVos = user.id === loggedInUser?.id;
     const initials = getInitials(user.name);
-    const fecha = new Date(user.createdAt).toLocaleDateString('es-AR');
+    const fecha = formatDate(user.createdAt);
 
     return `
       <tr>
         <td>
           <div class="user-cell">
-            <span class="user-avatar">${initials}</span>
+            <span class="user-avatar">${escapeHtml(initials)}</span>
             <span class="user-cell-name">
-              ${user.name}${esVos ? ' <span class="user-cell-you">(Tú)</span>' : ''}
+              ${escapeHtml(user.name)}${esVos ? ' <span class="user-cell-you">(vos)</span>' : ''}
             </span>
           </div>
         </td>
-        <td>${user.email}</td>
+        <td>${escapeHtml(user.email)}</td>
         <td>
           <span class="badge ${user.role === 'admin' ? 'badge--admin' : 'badge--user'}">
             ${user.role === 'admin' ? 'Administrador' : 'Usuario'}
@@ -112,7 +114,7 @@ export async function initUsersView(root) {
         <td class="num">${fecha}</td>
         <td class="table-actions-col">
           <div class="table-actions">
-            <button type="button" class="btn-icon" data-action="edit" data-id="${user.id}" title="Editar">
+            <button type="button" class="btn-icon" data-action="edit" data-id="${escapeHtml(user.id)}" title="Editar">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z" />
@@ -123,7 +125,7 @@ export async function initUsersView(root) {
                 ? `
               <button type="button" class="btn-icon btn-icon--danger" 
                       data-action="deactivate" 
-                      data-id="${user.id}" 
+                      data-id="${escapeHtml(user.id)}" 
                       title="Desactivar">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="12" cy="12" r="10" />
@@ -195,8 +197,10 @@ export async function initUsersView(root) {
       await loadAndRenderUsers();
       showSuccess('Usuario actualizado.');
     } catch (err) {
-      formError.textContent =
-        err.body?.message ?? 'Ocurrió un error, intentá de nuevo.';
+      formError.textContent = getErrorMessage(
+        err,
+        'Ocurrió un error, intentá de nuevo.',
+      );
       formError.classList.remove('hidden');
     } finally {
       submitBtn.disabled = false;
@@ -224,11 +228,13 @@ export async function initUsersView(root) {
 
       try {
         await usersService.remove(id);
-        await loadAndRenderUsers();
-        showSuccess('Usuario desactivado.');
       } catch (err) {
-        alert(err.body?.message ?? 'Ocurrió un error al desactivar.');
+        showError(getErrorMessage(err, 'Ocurrió un error al desactivar.'));
+        return;
       }
+
+      await loadAndRenderUsers();
+      showSuccess('Usuario desactivado.');
     }
   }
 

@@ -32,6 +32,9 @@ export async function register(name, email, password) {
 export async function logout() {
   try {
     await rawRequest('/auth/logout', { method: 'POST' });
+  } catch {
+    // A propósito: si la red falla, igual limpiamos la sesión local.
+    // El usuario no debe quedar atrapado en la app por un error de red.
   } finally {
     clearSession();
   }
@@ -45,8 +48,14 @@ export async function silentRefresh() {
 
   setAccessToken(body.accessToken);
 
-  const user = await api.get('/auth/me');
+  let user;
+  try {
+    user = await api.get('/auth/me');
+  } catch (err) {
+    clearSession();
+    throw err;
+  }
+
   setSession(body.accessToken, user);
-  localStorage.setItem('lastLogin', new Date().toISOString());
   return user;
 }

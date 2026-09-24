@@ -1,16 +1,5 @@
 import { api } from './api.js';
-
-function buildQuery(filters = {}) {
-  const params = new URLSearchParams();
-
-  for (const [key, value] of Object.entries(filters)) {
-    if (value === undefined || value === null || value === '') continue;
-    params.append(key, value);
-  }
-
-  const qs = params.toString();
-  return qs ? `?${qs}` : '';
-}
+import { buildQuery } from './query.js';
 
 export const productsService = {
   list: (filters) => api.get(`/products${buildQuery(filters)}`),

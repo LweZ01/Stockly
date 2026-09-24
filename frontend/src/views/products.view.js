@@ -2,6 +2,9 @@ import { productsService } from '../services/products.service.js';
 import { categoriesService } from '../services/categories.service.js';
 import { isAdmin } from '../services/auth-store.js';
 import { confirmDialog } from '../ui/confirm-dialog.js';
+import { escapeHtml, safeUrl } from '../ui/escape.js';
+import { getInitials, formatPrice } from '../ui/format.js';
+import { getErrorMessage } from '../ui/errors.js';
 
 const PAGE_LIMIT = 10;
 
@@ -22,7 +25,10 @@ export async function initProductsView(root) {
       <input type="number" id="max-price-input" placeholder="Precio máx." min="0" step="0.01" />
     </div>
 
+    <p id="filter-error" class="auth-error hidden"></p>
+
     <p id="product-success" class="auth-success hidden"></p>
+    <p id="product-error" class="auth-error hidden"></p>
 
     <div class="table-wrapper">
       <table>
@@ -96,6 +102,8 @@ export async function initProductsView(root) {
   const drawerTitle = root.querySelector('#product-drawer-title');
   const formError = root.querySelector('#product-form-error');
   const successMsg = root.querySelector('#product-success');
+  const errorMsg = root.querySelector('#product-error');
+  const filterErrorMsg = root.querySelector('#filter-error');
   const tbody = root.querySelector('#products-tbody');
   const paginationEl = root.querySelector('#pagination');
   const newBtn = root.querySelector('#new-product-btn');
@@ -111,29 +119,30 @@ export async function initProductsView(root) {
   let currentPage = 1;
   let currentFilters = { name: '', categoryId: '', minPrice: '', maxPrice: '' };
   let filterTimeout = null;
+  let loadSeq = 0;
 
   // --- Helpers ---
   function showSuccess(message) {
+    errorMsg.classList.add('hidden');
     successMsg.textContent = message;
     successMsg.classList.remove('hidden');
     setTimeout(() => successMsg.classList.add('hidden'), 2500);
   }
 
-  function formatPrice(value) {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      minimumFractionDigits: 2,
-    }).format(value);
+  function showError(message) {
+    successMsg.classList.add('hidden');
+    errorMsg.textContent = message;
+    errorMsg.classList.remove('hidden');
+    setTimeout(() => errorMsg.classList.add('hidden'), 4000);
   }
 
-  function getInitials(name) {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .substring(0, 2)
-      .toUpperCase();
+  function showFilterError(message) {
+    filterErrorMsg.textContent = message;
+    filterErrorMsg.classList.remove('hidden');
+  }
+
+  function hideFilterError() {
+    filterErrorMsg.classList.add('hidden');
   }
 
   // --- Categorías en los selects ---
@@ -146,7 +155,10 @@ export async function initProductsView(root) {
     }
 
     const optionsHtml = categories
-      .map((c) => `<option value="${c.id}">${c.name}</option>`)
+      .map(
+        (c) =>
+          `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`,
+      )
       .join('');
 
     categoryFilterSelect.innerHTML =
@@ -157,9 +169,10 @@ export async function initProductsView(root) {
 
   // --- Render de fila ---
   function renderRow(product) {
-    const thumb = product.imageUrl
-      ? `<img src="${product.imageUrl}" alt="${product.name}" class="product-thumb" />`
-      : `<span class="product-thumb-placeholder">${getInitials(product.name)}</span>`;
+    const imageSrc = safeUrl(product.imageUrl);
+    const thumb = imageSrc
+      ? `<img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(product.name)}" class="product-thumb" />`
+      : `<span class="product-thumb-placeholder">${escapeHtml(getInitials(product.name))}</span>`;
 
     const categoryName = product.category?.name ?? 'Sin categoría';
     const categoryClass = product.category?.name
@@ -168,13 +181,13 @@ export async function initProductsView(root) {
 
     const actions = isAdmin()
       ? `
-        <button type="button" class="btn-icon" data-action="edit" data-id="${product.id}" title="Editar">
+        <button type="button" class="btn-icon" data-action="edit" data-id="${escapeHtml(product.id)}" title="Editar">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z" />
           </svg>
         </button>
-        <button type="button" class="btn-icon btn-icon--danger" data-action="delete" data-id="${product.id}" title="Eliminar">
+        <button type="button" class="btn-icon btn-icon--danger" data-action="delete" data-id="${escapeHtml(product.id)}" title="Eliminar">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="3 6 5 6 21 6" />
             <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
@@ -191,12 +204,12 @@ export async function initProductsView(root) {
         <td>
           <div class="product-cell">
             ${thumb}
-            <span class="product-cell-name">${product.name}</span>
+            <span class="product-cell-name">${escapeHtml(product.name)}</span>
           </div>
         </td>
-        <td class="code">${product.sku}</td>
+        <td class="code">${escapeHtml(product.sku)}</td>
         <td>
-          <span class="badge ${categoryClass}">${categoryName}</span>
+          <span class="badge ${categoryClass}">${escapeHtml(categoryName)}</span>
         </td>
         <td class="num">${formatPrice(product.price)}</td>
         <td>
@@ -246,6 +259,8 @@ export async function initProductsView(root) {
 
   // --- Cargar productos ---
   async function loadAndRenderProducts() {
+    const seq = ++loadSeq;
+
     tbody.innerHTML =
       '<tr><td colspan="6" class="table-empty">Cargando productos...</td></tr>';
 
@@ -262,11 +277,14 @@ export async function initProductsView(root) {
     try {
       response = await productsService.list(filters);
     } catch {
+      if (seq !== loadSeq) return; // llegó un load más nuevo
       tbody.innerHTML =
         '<tr><td colspan="6" class="view-error">No se pudieron cargar los productos.</td></tr>';
       paginationEl.innerHTML = '';
       return;
     }
+
+    if (seq !== loadSeq) return; // llegó un load más nuevo
 
     currentProducts = response.data;
 
@@ -338,8 +356,10 @@ export async function initProductsView(root) {
       await loadAndRenderProducts();
       showSuccess(editingId ? 'Producto actualizado.' : 'Producto creado.');
     } catch (err) {
-      formError.textContent =
-        err.body?.message ?? 'Ocurrió un error, intentá de nuevo.';
+      formError.textContent = getErrorMessage(
+        err,
+        'Ocurrió un error, intentá de nuevo.',
+      );
       formError.classList.remove('hidden');
     } finally {
       submitBtn.disabled = false;
@@ -365,11 +385,13 @@ export async function initProductsView(root) {
 
       try {
         await productsService.remove(id);
-        await loadAndRenderProducts();
-        showSuccess('Producto eliminado.');
       } catch (err) {
-        alert(err.body?.message ?? 'Ocurrió un error al eliminar.');
+        showError(getErrorMessage(err, 'Ocurrió un error al eliminar.'));
+        return;
       }
+
+      await loadAndRenderProducts();
+      showSuccess('Producto eliminado.');
     }
   }
 
@@ -377,9 +399,23 @@ export async function initProductsView(root) {
   function scheduleFilterUpdate() {
     clearTimeout(filterTimeout);
     filterTimeout = setTimeout(() => {
+      const minRaw = minPriceInput.value;
+      const maxRaw = maxPriceInput.value;
+
+      // Solo validamos si ambos tienen valor.
+      if (minRaw !== '' && maxRaw !== '') {
+        const min = Number(minRaw);
+        const max = Number(maxRaw);
+        if (!Number.isNaN(min) && !Number.isNaN(max) && min > max) {
+          showFilterError('El precio mínimo no puede ser mayor que el máximo.');
+          return;
+        }
+      }
+
+      hideFilterError();
       currentFilters.name = searchInput.value;
-      currentFilters.minPrice = minPriceInput.value;
-      currentFilters.maxPrice = maxPriceInput.value;
+      currentFilters.minPrice = minRaw;
+      currentFilters.maxPrice = maxRaw;
       currentPage = 1;
       loadAndRenderProducts();
     }, 400);
@@ -403,4 +439,9 @@ export async function initProductsView(root) {
 
   await loadCategoriesIntoSelects();
   await loadAndRenderProducts();
+
+  // --- Cleanup ---
+  return () => {
+    clearTimeout(filterTimeout);
+  };
 }
