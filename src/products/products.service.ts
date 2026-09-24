@@ -9,6 +9,10 @@ import { UpdateProductDto } from './dto/update-product.dto.js';
 import { ProductQueryDto } from './dto/product-query.dto.js';
 import { handlePostgresError } from '../common/utils/postgres-error.util.js';
 
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&');
+}
+
 @Injectable()
 export class ProductsService {
   constructor(
@@ -40,7 +44,15 @@ export class ProductsService {
       .where('product.isActive = :isActive', { isActive: true });
 
     if (query.name) {
-      qb.andWhere('product.name ILIKE :name', { name: `%${query.name}%` });
+      qb.andWhere('product.name ILIKE :name', {
+        name: `%${escapeLike(query.name)}%`,
+      });
+    }
+
+    if (query.search) {
+      qb.andWhere('(product.name ILIKE :search OR product.sku ILIKE :search)', {
+        search: `%${escapeLike(query.search)}%`,
+      });
     }
 
     if (query.categoryId) {

@@ -246,7 +246,7 @@ export async function initInventoryView(root) {
 
     try {
       const response = await productsService.list({
-        name: query.trim(),
+        search: query.trim(),
         limit: 8,
       });
       if (seq !== searchSeq) return; // llegó una búsqueda más nueva

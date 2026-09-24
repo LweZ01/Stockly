@@ -19,7 +19,7 @@ export async function initProductsView(root) {
     </div>
 
     <div class="filters-bar">
-      <input type="search" id="search-input" placeholder="Buscar por nombre..." />
+      <input type="search" id="search-input" placeholder="Buscar por nombre o SKU..." />
       <select id="category-filter"></select>
       <input type="number" id="min-price-input" placeholder="Precio mín." min="0" step="0.01" />
       <input type="number" id="max-price-input" placeholder="Precio máx." min="0" step="0.01" />
@@ -117,7 +117,12 @@ export async function initProductsView(root) {
 
   let currentProducts = [];
   let currentPage = 1;
-  let currentFilters = { name: '', categoryId: '', minPrice: '', maxPrice: '' };
+  let currentFilters = {
+    search: '',
+    categoryId: '',
+    minPrice: '',
+    maxPrice: '',
+  };
   let filterTimeout = null;
   let loadSeq = 0;
 
@@ -265,7 +270,7 @@ export async function initProductsView(root) {
       '<tr><td colspan="6" class="table-empty">Cargando productos...</td></tr>';
 
     const filters = {
-      name: currentFilters.name || undefined,
+      search: currentFilters.search || undefined,
       categoryId: currentFilters.categoryId || undefined,
       minPrice: currentFilters.minPrice || undefined,
       maxPrice: currentFilters.maxPrice || undefined,
@@ -396,29 +401,41 @@ export async function initProductsView(root) {
   }
 
   // --- Filtros ---
+  function isPriceRangeValid() {
+    const minRaw = minPriceInput.value;
+    const maxRaw = maxPriceInput.value;
+
+    // Solo validamos si ambos tienen valor.
+    if (minRaw === '' || maxRaw === '') return true;
+
+    const min = Number(minRaw);
+    const max = Number(maxRaw);
+    if (Number.isNaN(min) || Number.isNaN(max)) return true;
+
+    return min <= max;
+  }
+
+  // Lee TODOS los controles, valida y, si todo está bien, recarga.
+  // Es el único camino por el que se actualizan los filtros: así
+  // currentFilters nunca queda a medias respecto de lo que muestra la UI.
+  function applyFilters() {
+    if (!isPriceRangeValid()) {
+      showFilterError('El precio mínimo no puede ser mayor que el máximo.');
+      return;
+    }
+
+    hideFilterError();
+    currentFilters.search = searchInput.value;
+    currentFilters.categoryId = categoryFilterSelect.value;
+    currentFilters.minPrice = minPriceInput.value;
+    currentFilters.maxPrice = maxPriceInput.value;
+    currentPage = 1;
+    loadAndRenderProducts();
+  }
+
   function scheduleFilterUpdate() {
     clearTimeout(filterTimeout);
-    filterTimeout = setTimeout(() => {
-      const minRaw = minPriceInput.value;
-      const maxRaw = maxPriceInput.value;
-
-      // Solo validamos si ambos tienen valor.
-      if (minRaw !== '' && maxRaw !== '') {
-        const min = Number(minRaw);
-        const max = Number(maxRaw);
-        if (!Number.isNaN(min) && !Number.isNaN(max) && min > max) {
-          showFilterError('El precio mínimo no puede ser mayor que el máximo.');
-          return;
-        }
-      }
-
-      hideFilterError();
-      currentFilters.name = searchInput.value;
-      currentFilters.minPrice = minRaw;
-      currentFilters.maxPrice = maxRaw;
-      currentPage = 1;
-      loadAndRenderProducts();
-    }, 400);
+    filterTimeout = setTimeout(applyFilters, 400);
   }
 
   // --- Event listeners ---
@@ -431,10 +448,9 @@ export async function initProductsView(root) {
   minPriceInput.addEventListener('input', scheduleFilterUpdate);
   maxPriceInput.addEventListener('input', scheduleFilterUpdate);
 
-  categoryFilterSelect.addEventListener('change', (e) => {
-    currentFilters.categoryId = e.target.value;
-    currentPage = 1;
-    loadAndRenderProducts();
+  categoryFilterSelect.addEventListener('change', () => {
+    clearTimeout(filterTimeout); // cancela un debounce pendiente; applyFilters ya lee todo
+    applyFilters();
   });
 
   await loadCategoriesIntoSelects();

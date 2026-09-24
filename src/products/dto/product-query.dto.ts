@@ -1,19 +1,36 @@
-import { IsOptional, IsString, IsUUID, IsNumber, Min } from 'class-validator';
-import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsOptional,
+  IsString,
+  IsUUID,
+  IsNumber,
+  Min,
+  MaxLength,
+} from 'class-validator';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 
 export class ProductQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
-    description: 'Búsqueda parcial por nombre (ILIKE)',
+    description: 'Nombre del producto (búsqueda parcial)',
+    example: 'Ibuprofeno',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  name?: string;
+
+  @ApiPropertyOptional({
+    description: 'Búsqueda parcial por nombre o SKU (ILIKE)',
     example: 'ibu',
   })
   @IsOptional()
   @IsString()
-  name?: string;
+  @MaxLength(100)
+  search?: string;
 
   @ApiPropertyOptional({
-    description: 'Filtrar por categoría',
+    description: 'ID de la categoría',
     format: 'uuid',
   })
   @IsOptional()
@@ -22,7 +39,7 @@ export class ProductQueryDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({
     description: 'Precio mínimo (inclusive)',
-    example: 5,
+    example: 100,
     minimum: 0,
     type: Number,
   })
@@ -34,7 +51,7 @@ export class ProductQueryDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({
     description: 'Precio máximo (inclusive)',
-    example: 100,
+    example: 5000,
     minimum: 0,
     type: Number,
   })
