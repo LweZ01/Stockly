@@ -8,11 +8,12 @@ function ensureDialog() {
 
   dialog = document.createElement('dialog');
   dialog.id = 'confirm-dialog';
+  dialog.className = 'confirm-dialog';
   dialog.innerHTML = `
     <p id="confirm-dialog-message"></p>
     <div class="dialog-actions">
-      <button type="button" id="confirm-dialog-accept" class="btn btn-primary">Aceptar</button>
       <button type="button" id="confirm-dialog-cancel" class="btn btn-ghost">Cancelar</button>
+      <button type="button" id="confirm-dialog-accept" class="btn btn-primary">Aceptar</button>
     </div>
   `;
   document.body.appendChild(dialog);
@@ -22,12 +23,6 @@ function ensureDialog() {
   cancelBtn = dialog.querySelector('#confirm-dialog-cancel');
 }
 
-/**
- * Muestra un dialog de confirmación y devuelve una Promise<boolean>:
- * true si el usuario acepta, false si cancela o cierra con Esc.
- *
- * Uso: const ok = await confirmDialog('¿Eliminar esta categoría?');
- */
 export function confirmDialog(message) {
   ensureDialog();
   messageEl.textContent = message;
@@ -49,8 +44,6 @@ export function confirmDialog(message) {
       cleanup(false);
     }
 
-    // Esc nativo dispara 'close' sin pasar por los botones — hay que cubrirlo
-    // para no dejar los listeners de accept/cancel colgados de la próxima vez.
     function onClose() {
       acceptBtn.removeEventListener('click', onAccept);
       cancelBtn.removeEventListener('click', onCancel);

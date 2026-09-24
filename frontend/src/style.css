@@ -361,8 +361,6 @@ input:disabled {
   gap: var(--space-1);
 }
 
-/* Cada link es un cuadrado de ícono centrado; el label de texto
-   (.nav-label) se oculta visualmente y solo aparece como tooltip. */
 .nav-link {
   position: relative;
   display: flex;
@@ -394,7 +392,6 @@ input:disabled {
 }
 
 .nav-label {
-  /* Oculto visualmente pero accesible para lectores de pantalla */
   position: absolute;
   width: 1px;
   height: 1px;
@@ -449,7 +446,6 @@ input:disabled {
   width: 100%;
 }
 
-/* --- USER CHIP (reducido a iniciales, con tooltip del nombre/rol) --- */
 .user-chip {
   display: flex;
   align-items: center;
@@ -523,7 +519,6 @@ input:disabled {
   overflow-y: auto;
 }
 
-/* Botón de menú hamburguesa (solo mobile) */
 .mobile-menu-btn {
   display: none;
   position: absolute;
@@ -539,7 +534,7 @@ input:disabled {
 }
 
 /* ============================================================
-   VIEW HEADER (título + acción principal de una vista)
+   VIEW HEADER
    ============================================================ */
 .view-header {
   display: flex;
@@ -663,8 +658,7 @@ dialog.drawer {
   left: auto;
   background: var(--color-surface);
   box-shadow: var(--shadow-lg);
-  display: flex;
-  flex-direction: column;
+  /* ⚠️ NO poner display: flex acá — el dialog cerrado debe quedar oculto */
 }
 
 dialog.drawer.drawer--lg {
@@ -675,8 +669,40 @@ dialog.drawer::backdrop {
   background: rgba(28, 27, 31, 0.4);
 }
 
+/* Solo cuando está abierto: display flex + animación */
 dialog.drawer[open] {
+  display: flex;
+  flex-direction: column;
   animation: drawer-in 0.2s ease-out;
+}
+
+/* El form que envuelve el contenido del drawer */
+dialog.drawer > .drawer-form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+/* El body del form toma todo el espacio disponible */
+dialog.drawer > .drawer-form > .drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* El footer con los botones queda pegado al fondo */
+dialog.drawer > .drawer-form > .drawer-actions {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
 }
 
 @keyframes drawer-in {
@@ -688,15 +714,7 @@ dialog.drawer[open] {
   }
 }
 
-.drawer-body {
-  padding: var(--space-6);
-  overflow-y: auto;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
+/* Títulos y textarea dentro del drawer-body */
 .drawer-body h3 {
   font-size: var(--font-size-lg);
   font-weight: 600;
@@ -708,15 +726,7 @@ dialog.drawer[open] {
   resize: vertical;
 }
 
-.drawer-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  padding: var(--space-4) var(--space-6);
-  border-top: 1px solid var(--color-border);
-  background: var(--color-surface-alt);
-}
-
+/* Confirm drawer (variante angosta centrada verticalmente) */
 dialog.drawer.drawer--confirm {
   height: auto;
   max-height: calc(100vh - var(--space-6) * 2);
@@ -726,6 +736,8 @@ dialog.drawer.drawer--confirm {
 }
 
 dialog.drawer.drawer--confirm[open] {
+  display: flex;
+  flex-direction: column;
   animation: drawer-confirm-in 0.2s ease-out;
 }
 
@@ -789,7 +801,6 @@ dialog.drawer.drawer--confirm[open] {
   grid-template-columns: 1fr;
   gap: var(--space-5);
   max-width: 1400px;
-  /* ✅ CAMBIO: stretch para que las tarjetas se estiren a la misma altura */
   align-items: stretch;
 }
 
@@ -802,7 +813,7 @@ dialog.drawer.drawer--confirm[open] {
 @media (min-width: 1200px) {
   .profile-grid {
     grid-template-columns: 1fr 1fr 1fr;
-    align-items: stretch; /* Aseguramos stretch en desktop grande */
+    align-items: stretch;
   }
 }
 
@@ -814,8 +825,6 @@ dialog.drawer.drawer--confirm[open] {
   box-shadow: var(--shadow-sm);
 }
 
-/* ✅ NUEVO: las tarjetas con formulario se comportan como columnas flex
-   para que sus botones queden pegados al fondo */
 .profile-card:not(.profile-card--static) {
   display: flex;
   flex-direction: column;
@@ -827,7 +836,6 @@ dialog.drawer.drawer--confirm[open] {
   flex-direction: column;
 }
 
-/* ✅ NUEVO: "Detalles de la cuenta" NO se estira, mantiene su alto natural */
 .profile-card--static {
   align-self: start;
 }
@@ -906,12 +914,11 @@ dialog.drawer.drawer--confirm[open] {
 .form-actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: auto; /* ✅ Empuja los botones al fondo de la tarjeta */
+  margin-top: auto;
   padding-top: var(--space-4);
   border-top: 1px solid var(--color-border);
 }
 
-/* Filas de detalles (label + valor) */
 .account-details {
   display: flex;
   flex-direction: column;
@@ -941,7 +948,9 @@ dialog.drawer.drawer--confirm[open] {
   color: var(--color-text);
 }
 
-/* Badges */
+/* ============================================================
+   BADGES
+   ============================================================ */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -970,6 +979,106 @@ dialog.drawer.drawer--confirm[open] {
 .badge--inactive {
   background: var(--color-surface-alt);
   color: var(--color-text-muted);
+}
+
+/* ============================================================
+   VISTA: USUARIOS
+   ============================================================ */
+
+/* Wrapper de la tabla */
+.table-wrapper {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.table-wrapper table {
+  border: none;
+  border-radius: 0;
+}
+
+/* Columna de acciones */
+.table-actions-col {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.table-actions {
+  display: inline-flex;
+  gap: var(--space-1);
+  justify-content: flex-end;
+}
+
+/* Estado vacío / cargando */
+.table-empty {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: var(--space-6) !important;
+}
+
+/* Celda con avatar + nombre */
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.user-cell-name {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.user-cell-you {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+/* Botones de acción con icono */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  transition:
+    background var(--transition),
+    color var(--transition);
+}
+
+.btn-icon:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+}
+
+.btn-icon--danger:hover {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.btn-icon--success:hover {
+  background: var(--color-success-light);
+  color: var(--color-success);
 }
 
 /* ============================================================
@@ -1007,4 +1116,34 @@ dialog.drawer.drawer--confirm[open] {
   dialog.drawer.drawer--lg {
     max-width: 100%;
   }
+}
+
+/* ============================================================
+   CONFIRM DIALOG
+   ============================================================ */
+dialog.confirm-dialog {
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  max-width: 420px;
+  width: 90%;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+dialog.confirm-dialog::backdrop {
+  background: rgba(28, 27, 31, 0.4);
+}
+
+dialog.confirm-dialog p {
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  margin-bottom: var(--space-5);
+  line-height: 1.5;
+}
+
+dialog.confirm-dialog .dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }

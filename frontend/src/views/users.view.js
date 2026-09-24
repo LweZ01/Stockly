@@ -5,57 +5,75 @@ import { confirmDialog } from '../ui/confirm-dialog.js';
 export async function initUsersView(root) {
   root.innerHTML = `
     <div class="view-header">
-      <h2>Usuarios</h2>
+      <div>
+        <h2>Usuarios</h2>
+        <p class="view-subtitle">Gestioná los accesos, roles y estados del sistema.</p>
+      </div>
     </div>
 
     <p id="users-success" class="auth-success hidden"></p>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>Email</th>
-          <th>Rol</th>
-          <th>Estado</th>
-          <th>Fecha de registro</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="users-tbody"></tbody>
-    </table>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Email</th>
+            <th>Rol</th>
+            <th>Estado</th>
+            <th>Fecha de registro</th>
+            <th class="table-actions-col">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="users-tbody"></tbody>
+      </table>
+    </div>
 
-    <dialog id="user-dialog">
-      <form id="user-form" class="auth-form">
-        <h3>Editar usuario</h3>
+    <!-- Drawer de edición -->
+    <dialog id="user-drawer" class="drawer">
+      <form id="user-form" class="drawer-form">
+        <div class="drawer-body">
+          <h3 id="user-drawer-title">Editar usuario</h3>
 
-        <div>
-          <label for="user-name">Nombre</label>
-          <input id="user-name" name="name" type="text" required maxlength="150" />
+          <div class="form-group">
+            <label for="user-name">Nombre completo</label>
+            <input id="user-name" name="name" type="text" required maxlength="150" />
+          </div>
+
+          <div class="form-group">
+            <label for="user-email">Email</label>
+            <input id="user-email" name="email" type="email" required />
+          </div>
+
+          <p id="user-form-error" class="auth-error hidden"></p>
         </div>
 
-        <div>
-          <label for="user-email">Email</label>
-          <input id="user-email" name="email" type="email" required />
-        </div>
-
-        <p id="user-form-error" class="auth-error hidden"></p>
-
-        <div class="dialog-actions">
-          <button type="submit" class="btn btn-primary">Guardar</button>
-          <button type="button" id="user-dialog-cancel" class="btn btn-ghost">Cancelar</button>
+        <div class="drawer-actions">
+          <button type="button" id="user-drawer-cancel" class="btn btn-ghost">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar cambios</button>
         </div>
       </form>
     </dialog>
   `;
 
-  const dialog = root.querySelector('#user-dialog');
+  const drawer = root.querySelector('#user-drawer');
   const form = root.querySelector('#user-form');
   const formError = root.querySelector('#user-form-error');
   const successMsg = root.querySelector('#users-success');
   const tbody = root.querySelector('#users-tbody');
-  const cancelBtn = root.querySelector('#user-dialog-cancel');
+  const cancelBtn = root.querySelector('#user-drawer-cancel');
 
   let currentUsers = [];
+
+  // --- Helpers ---
+  function getInitials(name) {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .substring(0, 2)
+      .toUpperCase();
+  }
 
   function showSuccess(message) {
     successMsg.textContent = message;
@@ -63,32 +81,68 @@ export async function initUsersView(root) {
     setTimeout(() => successMsg.classList.add('hidden'), 2500);
   }
 
+  // --- Render de fila ---
   function renderRow(user) {
     const loggedInUser = getUser();
     const esVos = user.id === loggedInUser?.id;
-    const nombreMostrado = esVos ? `${user.name} (Tú)` : user.name;
-    const fecha = new Date(user.createdAt).toLocaleDateString();
-    const estado = user.isActive ? 'Activo' : 'Inactivo';
-
-    let actions = `<button type="button" class="btn btn-ghost" data-action="edit" data-id="${user.id}">Editar</button>`;
-    if (!esVos) {
-      actions += `<button type="button" class="btn btn-ghost" data-action="delete" data-id="${user.id}">Desactivar</button>`;
-    }
+    const initials = getInitials(user.name);
+    const fecha = new Date(user.createdAt).toLocaleDateString('es-AR');
 
     return `
       <tr>
-        <td>${nombreMostrado}</td>
+        <td>
+          <div class="user-cell">
+            <span class="user-avatar">${initials}</span>
+            <span class="user-cell-name">
+              ${user.name}${esVos ? ' <span class="user-cell-you">(Tú)</span>' : ''}
+            </span>
+          </div>
+        </td>
         <td>${user.email}</td>
-        <td>${user.role}</td>
-        <td>${estado}</td>
-        <td>${fecha}</td>
-        <td>${actions}</td>
+        <td>
+          <span class="badge ${user.role === 'admin' ? 'badge--admin' : 'badge--user'}">
+            ${user.role === 'admin' ? 'Administrador' : 'Usuario'}
+          </span>
+        </td>
+        <td>
+          <span class="badge ${user.isActive ? 'badge--active' : 'badge--inactive'}">
+            ${user.isActive ? 'Activo' : 'Inactivo'}
+          </span>
+        </td>
+        <td class="num">${fecha}</td>
+        <td class="table-actions-col">
+          <div class="table-actions">
+            <button type="button" class="btn-icon" data-action="edit" data-id="${user.id}" title="Editar">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z" />
+              </svg>
+            </button>
+            ${
+              !esVos && user.isActive
+                ? `
+              <button type="button" class="btn-icon btn-icon--danger" 
+                      data-action="deactivate" 
+                      data-id="${user.id}" 
+                      title="Desactivar">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                </svg>
+              </button>
+            `
+                : ''
+            }
+          </div>
+        </td>
       </tr>
     `;
   }
 
+  // --- Carga y render ---
   async function loadAndRenderUsers() {
-    tbody.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
+    tbody.innerHTML =
+      '<tr><td colspan="6" class="table-empty">Cargando...</td></tr>';
 
     let users;
     try {
@@ -103,20 +157,21 @@ export async function initUsersView(root) {
 
     if (users.length === 0) {
       tbody.innerHTML =
-        '<tr><td colspan="6">No hay usuarios registrados.</td></tr>';
+        '<tr><td colspan="6" class="table-empty">No hay usuarios registrados.</td></tr>';
       return;
     }
 
     tbody.innerHTML = users.map(renderRow).join('');
   }
 
-  function openDialog(user) {
+  // --- Drawer ---
+  function openDrawer(user) {
     form.reset();
     formError.classList.add('hidden');
     form.elements.name.value = user.name;
     form.elements.email.value = user.email;
     form.dataset.editingId = user.id;
-    dialog.showModal();
+    drawer.showModal();
   }
 
   async function handleSubmit(e) {
@@ -136,7 +191,7 @@ export async function initUsersView(root) {
 
     try {
       await usersService.update(editingId, data);
-      dialog.close();
+      drawer.close();
       await loadAndRenderUsers();
       showSuccess('Usuario actualizado.');
     } catch (err) {
@@ -148,6 +203,7 @@ export async function initUsersView(root) {
     }
   }
 
+  // --- Acciones de tabla ---
   async function handleTableClick(e) {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
@@ -156,11 +212,11 @@ export async function initUsersView(root) {
 
     if (action === 'edit') {
       const user = currentUsers.find((u) => u.id === id);
-      if (user) openDialog(user);
+      if (user) openDrawer(user);
       return;
     }
 
-    if (action === 'delete') {
+    if (action === 'deactivate') {
       const ok = await confirmDialog(
         '¿Desactivar este usuario? No hay forma de revertir esto.',
       );
@@ -176,7 +232,7 @@ export async function initUsersView(root) {
     }
   }
 
-  cancelBtn.addEventListener('click', () => dialog.close());
+  cancelBtn.addEventListener('click', () => drawer.close());
   form.addEventListener('submit', handleSubmit);
   tbody.addEventListener('click', handleTableClick);
 
