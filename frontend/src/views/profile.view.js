@@ -3,56 +3,133 @@ import { getUser } from '../services/auth-store.js';
 
 export async function initProfileView(root) {
   const user = getUser();
+  const sessionStart = localStorage.getItem('lastLogin');
+
+  // Generar iniciales para el avatar
+  const initials = user.name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .substring(0, 2)
+    .toUpperCase();
 
   root.innerHTML = `
     <div class="view-header">
-      <h2>Mi perfil</h2>
+      <div>
+        <h2>Mi perfil</h2>
+        <p class="view-subtitle">Gestioná tu información personal y credenciales de acceso.</p>
+      </div>
     </div>
 
-    <p id="profile-success" class="auth-success hidden"></p>
+    <div class="profile-grid">
+      
+      <!-- Columna 1: Datos Personales -->
+      <div class="profile-card">
+        <div class="profile-card-header">
+          <h3>Datos personales</h3>
+          <p>Actualizá tu nombre visible en la plataforma.</p>
+        </div>
 
-    <form id="profile-form" class="auth-form">
-      <h3>Datos personales</h3>
+        <div class="profile-avatar-section">
+          <div class="profile-avatar">${initials}</div>
+          <div>
+            <p class="profile-avatar-name">${user.name}</p>
+            <p class="profile-avatar-role">${user.role === 'admin' ? 'Administrador' : 'Usuario'}</p>
+          </div>
+        </div>
 
-      <div>
-        <label for="profile-name">Nombre</label>
-        <input id="profile-name" name="name" type="text" required maxlength="150" value="${user.name}" />
+        <form id="profile-form" class="profile-form">
+          <p id="profile-success" class="auth-success hidden"></p>
+          <p id="profile-form-error" class="auth-error hidden"></p>
+
+          <div class="form-group">
+            <label for="profile-name">Nombre completo</label>
+            <input id="profile-name" name="name" type="text" required maxlength="150" value="${user.name}" />
+          </div>
+
+          <div class="form-group">
+            <label for="profile-email">Email</label>
+            <input id="profile-email" name="email" type="email" value="${user.email}" disabled />
+            <small class="form-help">El email no se puede modificar.</small>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Guardar cambios</button>
+          </div>
+        </form>
       </div>
 
-      <div>
-        <label for="profile-email">Email</label>
-        <input id="profile-email" name="email" type="email" value="${user.email}" disabled />
+      <!-- Columna 2: Seguridad -->
+      <div class="profile-card">
+        <div class="profile-card-header">
+          <h3>Seguridad</h3>
+          <p>Cambiá tu contraseña periódicamente para mantener tu cuenta segura.</p>
+        </div>
+
+        <form id="password-form" class="profile-form">
+          <p id="password-success" class="auth-success hidden"></p>
+          <p id="password-form-error" class="auth-error hidden"></p>
+
+          <div class="form-group">
+            <label for="current-password">Contraseña actual</label>
+            <input id="current-password" name="currentPassword" type="password" required />
+          </div>
+
+          <div class="form-group">
+            <label for="new-password">Nueva contraseña</label>
+            <input id="new-password" name="newPassword" type="password" required minlength="8" />
+          </div>
+
+          <div class="form-group">
+            <label for="confirm-password">Confirmar nueva contraseña</label>
+            <input id="confirm-password" name="confirmPassword" type="password" required minlength="8" />
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Cambiar contraseña</button>
+          </div>
+        </form>
       </div>
 
-      <p id="profile-form-error" class="auth-error hidden"></p>
+      <!-- Columna 3: Detalles de la cuenta -->
+      <div class="profile-card profile-card--static">
+        <div class="profile-card-header">
+          <h3>Detalles de la cuenta</h3>
+          <p>Información de solo lectura sobre tu usuario.</p>
+        </div>
 
-      <button type="submit" class="btn btn-primary">Guardar cambios</button>
-    </form>
+        <div class="account-details">
+          <div class="account-detail-row">
+            <span class="account-detail-label">ID de usuario</span>
+            <span class="account-detail-value num" title="${user.id}">
+              ${user.id ? user.id.substring(0, 8) + '...' : '—'}
+            </span>
+          </div>
 
-    <p id="password-success" class="auth-success hidden"></p>
+          <div class="account-detail-row">
+            <span class="account-detail-label">Estado de la cuenta</span>
+            <span class="badge ${user.isActive ? 'badge--active' : 'badge--inactive'}">
+              ${user.isActive ? 'Activo' : 'Inactivo'}
+            </span>
+          </div>
 
-    <form id="password-form" class="auth-form">
-      <h3>Cambiar contraseña</h3>
+          <div class="account-detail-row">
+            <span class="account-detail-label">Sesión actual</span>
+            <span class="account-detail-value num">
+              ${sessionStart ? new Date(sessionStart).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+            </span>
+          </div>
 
-      <div>
-        <label for="current-password">Contraseña actual</label>
-        <input id="current-password" name="currentPassword" type="password" required />
+          <div class="account-detail-row">
+            <span class="account-detail-label">Miembro desde</span>
+            <span class="account-detail-value num">
+              ${user.createdAt ? new Date(user.createdAt).toLocaleDateString('es-AR') : '—'}
+            </span>
+          </div>
+        </div>
       </div>
 
-      <div>
-        <label for="new-password">Nueva contraseña</label>
-        <input id="new-password" name="newPassword" type="password" required minlength="8" />
-      </div>
-
-      <div>
-        <label for="confirm-password">Confirmar nueva contraseña</label>
-        <input id="confirm-password" name="confirmPassword" type="password" required minlength="8" />
-      </div>
-
-      <p id="password-form-error" class="auth-error hidden"></p>
-
-      <button type="submit" class="btn btn-primary">Cambiar contraseña</button>
-    </form>
+    </div>
   `;
 
   const profileForm = root.querySelector('#profile-form');
@@ -83,17 +160,25 @@ export async function initProfileView(root) {
 
     try {
       const updatedUser = await usersService.update(user.id, data);
-
-      // Mutamos el objeto en memoria de auth-store (getUser() devuelve la
-      // misma referencia, no una copia) para que cualquier otra vista que
-      // lo lea después vea el dato actualizado sin necesidad de relogin.
       user.name = updatedUser.name;
 
-      // La sidebar (#user-name) solo se pinta una vez en main.js al hacer
-      // login/silentRefresh — hay que actualizarla a mano acá para que se
-      // vea el cambio sin recargar la página.
+      // Actualizamos el nombre en el sidebar
       const sidebarNameEl = document.getElementById('user-name');
       if (sidebarNameEl) sidebarNameEl.textContent = updatedUser.name;
+
+      // Actualizamos el avatar y el nombre dentro de la tarjeta de perfil
+      const avatarNameEl = root.querySelector('.profile-avatar-name');
+      const avatarEl = root.querySelector('.profile-avatar');
+      if (avatarNameEl) avatarNameEl.textContent = updatedUser.name;
+      if (avatarEl) {
+        const newInitials = updatedUser.name
+          .split(' ')
+          .map((n) => n[0])
+          .join('')
+          .substring(0, 2)
+          .toUpperCase();
+        avatarEl.textContent = newInitials;
+      }
 
       showSuccess(profileSuccess, 'Datos actualizados.');
     } catch (err) {

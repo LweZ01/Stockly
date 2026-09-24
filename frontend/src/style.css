@@ -56,7 +56,6 @@
 
   /* Layout */
   --sidebar-width: 64px;
-  --topbar-height: 56px;
   --drawer-width: 420px;
   --drawer-width-lg: 560px;
   --transition: 0.16s ease;
@@ -219,6 +218,12 @@ select:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+input:disabled {
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
 }
 
 /* ============================================================
@@ -460,9 +465,6 @@ select:focus {
 }
 
 .user-name {
-  /* El texto completo se mantiene en el DOM (main.js sigue pintando
-     esto) pero no se muestra: solo se ve la inicial via ::first-letter
-     no es viable en JS, así que mostramos el texto real pero angosto. */
   font-size: 0.7rem;
   line-height: 1;
 }
@@ -504,39 +506,36 @@ select:focus {
   z-index: 40;
 }
 
-/* --- CONTENT AREA --- */
+/* ============================================================
+   CONTENT AREA (Refactorizado: sin topbar)
+   ============================================================ */
 .content-area {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.topbar {
-  height: var(--topbar-height);
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: 0 var(--space-5);
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.topbar-menu-btn {
-  display: none;
-  color: var(--color-text-muted);
-}
-
-.view-title {
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--color-bg);
 }
 
 .view-root {
-  flex: 1;
-  padding: var(--space-5);
+  height: 100%;
+  padding: var(--space-6) var(--space-5);
   overflow-y: auto;
+}
+
+/* Botón de menú hamburguesa (solo mobile) */
+.mobile-menu-btn {
+  display: none;
+  position: absolute;
+  top: var(--space-4);
+  left: var(--space-4);
+  z-index: 30;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-text);
 }
 
 /* ============================================================
@@ -553,6 +552,12 @@ select:focus {
   font-size: var(--font-size-xl);
   font-weight: 700;
   letter-spacing: -0.01em;
+}
+
+.view-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
 }
 
 /* ============================================================
@@ -618,8 +623,6 @@ tbody tr:hover {
   background: var(--color-surface-alt);
 }
 
-/* Columnas numéricas (SKU, precio, cantidad, stock) en mono,
-   alineadas a la derecha para que los dígitos se lean en columna. */
 td.num,
 th.num {
   font-family: var(--font-mono);
@@ -644,8 +647,7 @@ th.num {
 }
 
 /* ============================================================
-   DRAWER (panel lateral — reemplaza el <dialog> centrado para
-   crear/editar, y también el diálogo de confirmación)
+   DRAWER
    ============================================================ */
 dialog.drawer {
   margin: 0;
@@ -673,7 +675,6 @@ dialog.drawer::backdrop {
   background: rgba(28, 27, 31, 0.4);
 }
 
-/* Animación de entrada desde la derecha */
 dialog.drawer[open] {
   animation: drawer-in 0.2s ease-out;
 }
@@ -716,9 +717,6 @@ dialog.drawer[open] {
   background: var(--color-surface-alt);
 }
 
-/* Diálogo de confirmación: mismo <dialog> pero angosto y centrado
-   verticalmente en el drawer en vez de ocupar toda la altura —
-   una confirmación no necesita el alto completo de pantalla. */
 dialog.drawer.drawer--confirm {
   height: auto;
   max-height: calc(100vh - var(--space-6) * 2);
@@ -784,10 +782,200 @@ dialog.drawer.drawer--confirm[open] {
 }
 
 /* ============================================================
+   VISTA: MI PERFIL
+   ============================================================ */
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-5);
+  max-width: 1400px;
+  /* ✅ CAMBIO: stretch para que las tarjetas se estiren a la misma altura */
+  align-items: stretch;
+}
+
+@media (min-width: 768px) {
+  .profile-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 1200px) {
+  .profile-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: stretch; /* Aseguramos stretch en desktop grande */
+  }
+}
+
+.profile-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ✅ NUEVO: las tarjetas con formulario se comportan como columnas flex
+   para que sus botones queden pegados al fondo */
+.profile-card:not(.profile-card--static) {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-card:not(.profile-card--static) .profile-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ✅ NUEVO: "Detalles de la cuenta" NO se estira, mantiene su alto natural */
+.profile-card--static {
+  align-self: start;
+}
+
+.profile-card-header {
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.profile-card-header h3 {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.profile-card-header p {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}
+
+.profile-avatar-section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  padding: var(--space-4);
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-md);
+}
+
+.profile-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.profile-avatar-name {
+  font-weight: 600;
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+}
+
+.profile-avatar-role {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.form-help {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto; /* ✅ Empuja los botones al fondo de la tarjeta */
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Filas de detalles (label + valor) */
+.account-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.account-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.account-detail-row:last-child {
+  border-bottom: none;
+}
+
+.account-detail-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.account-detail-value {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.badge--admin {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.badge--user {
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+}
+
+.badge--active {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.badge--inactive {
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+}
+
+/* ============================================================
    RESPONSIVE
    ============================================================ */
 @media (max-width: 768px) {
-  /* Sidebar se vuelve overlay y se oculta por defecto */
   .sidebar {
     position: fixed;
     top: 0;
@@ -799,14 +987,12 @@ dialog.drawer.drawer--confirm[open] {
     box-shadow: var(--shadow-lg);
   }
 
-  /* Cuando JS agregue .sidebar--open, se desliza hacia adentro */
   .sidebar.sidebar--open {
     transform: translateX(0);
   }
 
-  /* En mobile mostramos los botones de toggle */
   .sidebar-toggle,
-  .topbar-menu-btn {
+  .mobile-menu-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -814,6 +1000,7 @@ dialog.drawer.drawer--confirm[open] {
 
   .view-root {
     padding: var(--space-4);
+    padding-top: calc(var(--space-6) + 40px);
   }
 
   dialog.drawer,

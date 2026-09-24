@@ -35,7 +35,7 @@ async function renderCurrent() {
     link.classList.toggle('active', link.dataset.route === name);
   });
 
-  document.getElementById('view-title').textContent = route.title;
+  // document.getElementById('view-title').textContent = route.title;
 
   const root = document.getElementById('view-root');
   try {

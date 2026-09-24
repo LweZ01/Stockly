@@ -12,6 +12,7 @@ export async function login(email, password) {
   }
 
   setSession(body.accessToken, body.user);
+  localStorage.setItem('lastLogin', new Date().toISOString());
   return body;
 }
 
@@ -39,12 +40,13 @@ export async function logout() {
 export async function silentRefresh() {
   const { res, body } = await rawRequest('/auth/refresh', { method: 'POST' });
 
-  if (res.status === 401) return null; // no había sesión previa: caso esperado
+  if (res.status === 401) return null;
   if (!res.ok) throw new ApiError(res.status, body);
 
   setAccessToken(body.accessToken);
 
   const user = await api.get('/auth/me');
   setSession(body.accessToken, user);
+  localStorage.setItem('lastLogin', new Date().toISOString());
   return user;
 }

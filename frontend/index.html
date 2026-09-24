@@ -337,31 +337,30 @@
         <!-- Overlay para mobile (se muestra cuando la sidebar está abierta) -->
         <div id="sidebar-overlay" class="sidebar-overlay hidden"></div>
 
-        <!-- ÁREA DE CONTENIDO -->
+        <!-- ÁREA DE CONTENIDO (Sin topbar, todo el espacio para la vista) -->
         <div class="content-area">
-          <header class="topbar">
-            <button
-              type="button"
-              id="topbar-menu-btn"
-              class="topbar-menu-btn"
-              aria-label="Abrir menú"
+          <!-- Botón de menú móvil: flota en la esquina superior izquierda del contenido, 
+               solo visible en mobile. Reemplaza al antiguo #topbar-menu-btn -->
+          <button
+            type="button"
+            id="topbar-menu-btn"
+            class="topbar-menu-btn mobile-menu-btn"
+            aria-label="Abrir menú"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
             >
-              <svg
-                viewBox="0 0 24 24"
-                width="20"
-                height="20"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <line x1="4" y1="7" x2="20" y2="7" />
-                <line x1="4" y1="12" x2="20" y2="12" />
-                <line x1="4" y1="17" x2="20" y2="17" />
-              </svg>
-            </button>
-            <h1 id="view-title" class="view-title">Dashboard</h1>
-          </header>
+              <line x1="4" y1="7" x2="20" y2="7" />
+              <line x1="4" y1="12" x2="20" y2="12" />
+              <line x1="4" y1="17" x2="20" y2="17" />
+            </svg>
+          </button>
 
           <!-- Acá se inyectan las vistas -->
           <main id="view-root" class="view-root"></main>
