@@ -5,4 +5,8 @@ export const inventoryService = {
   getStock: (productId) => api.get(`/inventory/products/${productId}/stock`),
   getHistory: (productId) =>
     api.get(`/inventory/products/${productId}/movements`),
+
+  async getRecentMovements(limit = 10) {
+    return api.get(`/inventory/movements/recent?limit=${limit}`);
+  },
 };

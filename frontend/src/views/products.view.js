@@ -8,8 +8,11 @@ const PAGE_LIMIT = 10;
 export async function initProductsView(root) {
   root.innerHTML = `
     <div class="view-header">
-      <h2>Productos</h2>
-      ${isAdmin() ? '<button id="new-product-btn" type="button" class="btn btn-primary">Nuevo producto</button>' : ''}
+      <div>
+        <h2>Productos</h2>
+        <p class="view-subtitle">Gestioná el catálogo, precios y categorías.</p>
+      </div>
+      ${isAdmin() ? '<button id="new-product-btn" type="button" class="btn btn-primary">+ Nuevo producto</button>' : ''}
     </div>
 
     <div class="filters-bar">
@@ -21,75 +24,82 @@ export async function initProductsView(root) {
 
     <p id="product-success" class="auth-success hidden"></p>
 
-    <table>
-      <thead>
-        <tr>
-          <th>SKU</th>
-          <th>Nombre</th>
-          <th>Categoría</th>
-          <th>Precio</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="products-tbody"></tbody>
-    </table>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>SKU</th>
+            <th>Categoría</th>
+            <th class="num">Precio</th>
+            <th>Estado</th>
+            <th class="table-actions-col">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="products-tbody"></tbody>
+      </table>
+    </div>
 
-    <div id="pagination"></div>
+    <div id="pagination" class="pagination"></div>
 
-    <dialog id="product-dialog" class="dialog--lg">
-      <form id="product-form" class="auth-form">
-        <h3 id="product-dialog-title">Nuevo producto</h3>
+    <dialog id="product-drawer" class="drawer drawer--lg">
+      <form id="product-form" class="drawer-form">
+        <div class="drawer-body">
+          <h3 id="product-drawer-title">Nuevo producto</h3>
 
-        <div>
-          <label for="product-sku">SKU</label>
-          <input id="product-sku" name="sku" type="text" required maxlength="50" />
+          <div class="form-group">
+            <label for="product-name">Nombre</label>
+            <input id="product-name" name="name" type="text" required maxlength="150" />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="product-sku">SKU</label>
+              <input id="product-sku" name="sku" type="text" required maxlength="50" />
+            </div>
+
+            <div class="form-group">
+              <label for="product-price">Precio</label>
+              <input id="product-price" name="price" type="number" required min="0" step="0.01" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="product-category">Categoría</label>
+            <select id="product-category" name="categoryId"></select>
+          </div>
+
+          <div class="form-group">
+            <label for="product-description">Descripción</label>
+            <textarea id="product-description" name="description" rows="3"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="product-image-url">URL de imagen</label>
+            <input id="product-image-url" name="imageUrl" type="text" placeholder="https://..." />
+            <small class="form-help">Opcional. Podés pegar una URL pública.</small>
+          </div>
+
+          <p id="product-form-error" class="auth-error hidden"></p>
         </div>
 
-        <div>
-          <label for="product-name">Nombre</label>
-          <input id="product-name" name="name" type="text" required maxlength="150" />
-        </div>
-
-        <div>
-          <label for="product-description">Descripción</label>
-          <textarea id="product-description" name="description"></textarea>
-        </div>
-
-        <div>
-          <label for="product-price">Precio</label>
-          <input id="product-price" name="price" type="number" required min="0" step="0.01" />
-        </div>
-
-        <div>
-          <label for="product-category">Categoría</label>
-          <select id="product-category" name="categoryId"></select>
-        </div>
-
-        <div>
-          <label for="product-image-url">URL de imagen</label>
-          <input id="product-image-url" name="imageUrl" type="text" />
-        </div>
-
-        <p id="product-form-error" class="auth-error hidden"></p>
-
-        <div class="dialog-actions">
-          <button type="submit" class="btn btn-primary">Guardar</button>
-          <button type="button" id="product-dialog-cancel" class="btn btn-ghost">Cancelar</button>
+        <div class="drawer-actions">
+          <button type="button" id="product-drawer-cancel" class="btn btn-ghost">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar cambios</button>
         </div>
       </form>
     </dialog>
   `;
 
-  const dialog = root.querySelector('#product-dialog');
+  const drawer = root.querySelector('#product-drawer');
   const form = root.querySelector('#product-form');
-  const dialogTitle = root.querySelector('#product-dialog-title');
+  const drawerTitle = root.querySelector('#product-drawer-title');
   const formError = root.querySelector('#product-form-error');
   const successMsg = root.querySelector('#product-success');
   const tbody = root.querySelector('#products-tbody');
   const paginationEl = root.querySelector('#pagination');
   const newBtn = root.querySelector('#new-product-btn');
-  const cancelBtn = root.querySelector('#product-dialog-cancel');
+  const cancelBtn = root.querySelector('#product-drawer-cancel');
 
   const searchInput = root.querySelector('#search-input');
   const categoryFilterSelect = root.querySelector('#category-filter');
@@ -102,18 +112,36 @@ export async function initProductsView(root) {
   let currentFilters = { name: '', categoryId: '', minPrice: '', maxPrice: '' };
   let filterTimeout = null;
 
+  // --- Helpers ---
   function showSuccess(message) {
     successMsg.textContent = message;
     successMsg.classList.remove('hidden');
     setTimeout(() => successMsg.classList.add('hidden'), 2500);
   }
 
+  function formatPrice(value) {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      minimumFractionDigits: 2,
+    }).format(value);
+  }
+
+  function getInitials(name) {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .substring(0, 2)
+      .toUpperCase();
+  }
+
+  // --- Categorías en los selects ---
   async function loadCategoriesIntoSelects() {
     let categories;
     try {
       categories = await categoriesService.list();
     } catch {
-      // Fallback silencioso: los selects quedan solo con su opción por defecto.
       return;
     }
 
@@ -127,52 +155,99 @@ export async function initProductsView(root) {
       '<option value="">Sin categoría</option>' + optionsHtml;
   }
 
+  // --- Render de fila ---
   function renderRow(product) {
     const thumb = product.imageUrl
       ? `<img src="${product.imageUrl}" alt="${product.name}" class="product-thumb" />`
-      : '<span class="product-thumb-placeholder">—</span>';
+      : `<span class="product-thumb-placeholder">${getInitials(product.name)}</span>`;
 
-    const categoryName = product.category?.name ?? '—';
-    const estado = product.isActive ? 'Activo' : 'Inactivo';
+    const categoryName = product.category?.name ?? 'Sin categoría';
+    const categoryClass = product.category?.name
+      ? 'badge--user'
+      : 'badge--inactive';
+
     const actions = isAdmin()
-      ? `<button type="button" class="btn btn-ghost" data-action="edit" data-id="${product.id}">Editar</button>
-         <button type="button" class="btn btn-ghost" data-action="delete" data-id="${product.id}">Eliminar</button>`
+      ? `
+        <button type="button" class="btn-icon" data-action="edit" data-id="${product.id}" title="Editar">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z" />
+          </svg>
+        </button>
+        <button type="button" class="btn-icon btn-icon--danger" data-action="delete" data-id="${product.id}" title="Eliminar">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+            <path d="M10 11v6" />
+            <path d="M14 11v6" />
+            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+          </svg>
+        </button>
+      `
       : '';
 
     return `
       <tr>
-        <td>${product.sku}</td>
-        <td>${thumb} ${product.name}</td>
-        <td>${categoryName}</td>
-        <td>$${product.price.toFixed(2)}</td>
-        <td>${estado}</td>
-        <td>${actions}</td>
+        <td>
+          <div class="product-cell">
+            ${thumb}
+            <span class="product-cell-name">${product.name}</span>
+          </div>
+        </td>
+        <td class="code">${product.sku}</td>
+        <td>
+          <span class="badge ${categoryClass}">${categoryName}</span>
+        </td>
+        <td class="num">${formatPrice(product.price)}</td>
+        <td>
+          <span class="badge ${product.isActive ? 'badge--active' : 'badge--inactive'}">
+            ${product.isActive ? 'Activo' : 'Inactivo'}
+          </span>
+        </td>
+        <td class="table-actions-col">
+          <div class="table-actions">${actions}</div>
+        </td>
       </tr>
     `;
   }
 
+  // --- Paginación ---
   function renderPagination({ total, page, limit }) {
     const totalPages = Math.ceil(total / limit) || 1;
 
+    if (totalPages <= 1) {
+      paginationEl.innerHTML = '';
+      return;
+    }
+
     paginationEl.innerHTML = `
-      <button type="button" id="prev-page-btn" class="btn btn-ghost" ${page <= 1 ? 'disabled' : ''}>Anterior</button>
-      <span>Página ${page} de ${totalPages}</span>
-      <button type="button" id="next-page-btn" class="btn btn-ghost" ${page >= totalPages ? 'disabled' : ''}>Siguiente</button>
+      <button type="button" id="prev-page-btn" class="btn btn-ghost" ${page <= 1 ? 'disabled' : ''}>← Anterior</button>
+      <span class="pagination-info">Página ${page} de ${totalPages}</span>
+      <button type="button" id="next-page-btn" class="btn btn-ghost" ${page >= totalPages ? 'disabled' : ''}>Siguiente →</button>
     `;
 
-    root.querySelector('#prev-page-btn').addEventListener('click', () => {
-      currentPage--;
-      loadAndRenderProducts();
-    });
+    const prevBtn = paginationEl.querySelector('#prev-page-btn');
+    const nextBtn = paginationEl.querySelector('#next-page-btn');
 
-    root.querySelector('#next-page-btn').addEventListener('click', () => {
-      currentPage++;
-      loadAndRenderProducts();
-    });
+    if (prevBtn && !prevBtn.disabled) {
+      prevBtn.addEventListener('click', () => {
+        currentPage--;
+        loadAndRenderProducts();
+      });
+    }
+
+    if (nextBtn && !nextBtn.disabled) {
+      nextBtn.addEventListener('click', () => {
+        currentPage++;
+        loadAndRenderProducts();
+      });
+    }
   }
 
+  // --- Cargar productos ---
   async function loadAndRenderProducts() {
-    tbody.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
+    tbody.innerHTML =
+      '<tr><td colspan="6" class="table-empty">Cargando productos...</td></tr>';
 
     const filters = {
       name: currentFilters.name || undefined,
@@ -196,8 +271,13 @@ export async function initProductsView(root) {
     currentProducts = response.data;
 
     if (response.data.length === 0) {
-      tbody.innerHTML =
-        '<tr><td colspan="6">No hay productos que coincidan con los filtros.</td></tr>';
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" class="table-empty">
+            No hay productos que coincidan con los filtros.
+          </td>
+        </tr>
+      `;
       renderPagination(response);
       return;
     }
@@ -206,12 +286,13 @@ export async function initProductsView(root) {
     renderPagination(response);
   }
 
-  function openDialog(product = null) {
+  // --- Drawer ---
+  function openDrawer(product = null) {
     form.reset();
     formError.classList.add('hidden');
 
     if (product) {
-      dialogTitle.textContent = 'Editar producto';
+      drawerTitle.textContent = 'Editar producto';
       form.elements.sku.value = product.sku;
       form.elements.name.value = product.name;
       form.elements.description.value = product.description ?? '';
@@ -220,11 +301,11 @@ export async function initProductsView(root) {
       form.elements.imageUrl.value = product.imageUrl ?? '';
       form.dataset.editingId = product.id;
     } else {
-      dialogTitle.textContent = 'Nuevo producto';
+      drawerTitle.textContent = 'Nuevo producto';
       delete form.dataset.editingId;
     }
 
-    dialog.showModal();
+    drawer.showModal();
   }
 
   async function handleSubmit(e) {
@@ -253,7 +334,7 @@ export async function initProductsView(root) {
         await productsService.create(data);
       }
 
-      dialog.close();
+      drawer.close();
       await loadAndRenderProducts();
       showSuccess(editingId ? 'Producto actualizado.' : 'Producto creado.');
     } catch (err) {
@@ -265,6 +346,7 @@ export async function initProductsView(root) {
     }
   }
 
+  // --- Acciones de tabla ---
   async function handleTableClick(e) {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
@@ -273,7 +355,7 @@ export async function initProductsView(root) {
 
     if (action === 'edit') {
       const product = currentProducts.find((p) => p.id === id);
-      if (product) openDialog(product);
+      if (product) openDrawer(product);
       return;
     }
 
@@ -291,6 +373,7 @@ export async function initProductsView(root) {
     }
   }
 
+  // --- Filtros ---
   function scheduleFilterUpdate() {
     clearTimeout(filterTimeout);
     filterTimeout = setTimeout(() => {
@@ -302,8 +385,9 @@ export async function initProductsView(root) {
     }, 400);
   }
 
-  if (newBtn) newBtn.addEventListener('click', () => openDialog());
-  cancelBtn.addEventListener('click', () => dialog.close());
+  // --- Event listeners ---
+  if (newBtn) newBtn.addEventListener('click', () => openDrawer());
+  cancelBtn.addEventListener('click', () => drawer.close());
   form.addEventListener('submit', handleSubmit);
   tbody.addEventListener('click', handleTableClick);
 

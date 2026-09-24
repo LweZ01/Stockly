@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mi App</title>
+    <title>Stockly</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -18,90 +18,192 @@
        ============================================================ -->
     <section id="auth-screen" class="screen">
       <div class="auth-card">
-        <h1 class="auth-title">Mi App</h1>
-        <p class="auth-subtitle">Iniciá sesión o creá una cuenta</p>
+        <!-- Logo -->
+        <div class="auth-logo">SK</div>
+
+        <!-- Título y subtítulo -->
+        <h1 class="auth-title">Stockly</h1>
+        <p class="auth-subtitle">Gestioná tu inventario de forma simple</p>
+
+        <!-- Tabs -->
+        <div class="auth-tabs" role="tablist">
+          <button
+            type="button"
+            class="auth-tab active"
+            role="tab"
+            data-tab="login"
+            aria-selected="true"
+          >
+            Ingresar
+          </button>
+          <button
+            type="button"
+            class="auth-tab"
+            role="tab"
+            data-tab="register"
+            aria-selected="false"
+          >
+            Registro
+          </button>
+        </div>
 
         <!-- Form de Login -->
         <form id="login-form" class="auth-form" data-form="login">
-          <h2>Iniciar sesión</h2>
-
           <p id="login-error" class="auth-error hidden"></p>
           <p id="login-success" class="auth-success hidden"></p>
 
-          <label for="login-email">Email</label>
-          <input
-            type="email"
-            id="login-email"
-            name="email"
-            placeholder="tu@email.com"
-            autocomplete="email"
-            required
-          />
+          <div class="form-group">
+            <label for="login-email">Email</label>
+            <div class="input-with-icon">
+              <svg
+                class="input-icon"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="m22 7-10 5L2 7" />
+              </svg>
+              <input
+                type="email"
+                id="login-email"
+                name="email"
+                placeholder="tu@email.com"
+                autocomplete="email"
+                required
+              />
+            </div>
+          </div>
 
-          <label for="login-password">Contraseña</label>
-          <input
-            type="password"
-            id="login-password"
-            name="password"
-            placeholder="••••••••"
-            autocomplete="current-password"
-            required
-          />
+          <div class="form-group">
+            <label for="login-password">Contraseña</label>
+            <div class="input-with-icon">
+              <svg
+                class="input-icon"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              <input
+                type="password"
+                id="login-password"
+                name="password"
+                placeholder="••••••••"
+                autocomplete="current-password"
+                required
+              />
+            </div>
+          </div>
 
-          <button type="submit" class="btn btn-primary">Ingresar</button>
-
-          <p class="auth-switch">
-            ¿No tenés cuenta?
-            <button type="button" class="link-btn" data-switch-to="register">
-              Registrate
-            </button>
-          </p>
+          <button type="submit" class="btn btn-primary auth-submit">
+            Ingresar
+          </button>
         </form>
 
         <!-- Form de Register -->
         <form id="register-form" class="auth-form hidden" data-form="register">
-          <h2>Crear cuenta</h2>
-
           <p id="register-error" class="auth-error hidden"></p>
 
-          <label for="register-name">Nombre</label>
-          <input
-            type="text"
-            id="register-name"
-            name="name"
-            placeholder="Tu nombre"
-            autocomplete="name"
-            required
-          />
+          <div class="form-group">
+            <label for="register-name">Nombre</label>
+            <div class="input-with-icon">
+              <svg
+                class="input-icon"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" />
+              </svg>
+              <input
+                type="text"
+                id="register-name"
+                name="name"
+                placeholder="Tu nombre"
+                autocomplete="name"
+                required
+              />
+            </div>
+          </div>
 
-          <label for="register-email">Email</label>
-          <input
-            type="email"
-            id="register-email"
-            name="email"
-            placeholder="tu@email.com"
-            autocomplete="email"
-            required
-          />
+          <div class="form-group">
+            <label for="register-email">Email</label>
+            <div class="input-with-icon">
+              <svg
+                class="input-icon"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="m22 7-10 5L2 7" />
+              </svg>
+              <input
+                type="email"
+                id="register-email"
+                name="email"
+                placeholder="tu@email.com"
+                autocomplete="email"
+                required
+              />
+            </div>
+          </div>
 
-          <label for="register-password">Contraseña</label>
-          <input
-            type="password"
-            id="register-password"
-            name="password"
-            placeholder="••••••••"
-            autocomplete="new-password"
-            required
-          />
+          <div class="form-group">
+            <label for="register-password">Contraseña</label>
+            <div class="input-with-icon">
+              <svg
+                class="input-icon"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              <input
+                type="password"
+                id="register-password"
+                name="password"
+                placeholder="••••••••"
+                autocomplete="new-password"
+                required
+              />
+            </div>
+          </div>
 
-          <button type="submit" class="btn btn-primary">Registrarme</button>
-
-          <p class="auth-switch">
-            ¿Ya tenés cuenta?
-            <button type="button" class="link-btn" data-switch-to="login">
-              Iniciá sesión
-            </button>
-          </p>
+          <button type="submit" class="btn btn-primary auth-submit">
+            Crear cuenta
+          </button>
         </form>
       </div>
     </section>
@@ -114,7 +216,7 @@
         <!-- SIDEBAR (solo-íconos, con tooltip por data-tooltip en cada link) -->
         <aside id="sidebar" class="sidebar">
           <div class="sidebar-header">
-            <span class="sidebar-logo">MA</span>
+            <div class="sidebar-logo">SK</div>
             <button
               type="button"
               id="sidebar-toggle"

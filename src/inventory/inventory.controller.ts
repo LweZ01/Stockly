@@ -4,6 +4,7 @@ import {
   Get,
   Body,
   Param,
+  Query,
   ParseUUIDPipe,
   UseGuards,
 } from '@nestjs/common';
@@ -54,5 +55,13 @@ export class InventoryController {
   })
   getHistory(@Param('productId', ParseUUIDPipe) productId: string) {
     return this.inventoryService.findHistoryByProduct(productId);
+  }
+
+  @Get('movements/recent')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async getRecentMovements(@Query('limit') limit?: string) {
+    const parsedLimit = limit ? Math.min(parseInt(limit, 10), 50) : 10;
+    return this.inventoryService.findRecentMovements(parsedLimit);
   }
 }

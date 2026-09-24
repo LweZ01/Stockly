@@ -26,28 +26,43 @@ export function initAuthView(onLoginSuccess) {
   const loginError = document.getElementById('login-error');
   const loginSuccess = document.getElementById('login-success');
   const registerError = document.getElementById('register-error');
+  const tabs = document.querySelectorAll('.auth-tab');
 
-  document.querySelectorAll('[data-switch-to]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const target = btn.dataset.switchTo;
-
-      hideMessage(loginError);
-      hideMessage(loginSuccess);
-      hideMessage(registerError);
-
-      if (target === 'register') {
-        loginForm.classList.add('hidden');
-        registerForm.classList.remove('hidden');
-      } else {
-        registerForm.classList.add('hidden');
-        loginForm.classList.remove('hidden');
-      }
+  // --- Tabs ---
+  function switchTab(target) {
+    // Actualizar clases y aria-selected
+    tabs.forEach((tab) => {
+      const isActive = tab.dataset.tab === target;
+      tab.classList.toggle('active', isActive);
+      tab.setAttribute('aria-selected', String(isActive));
     });
+
+    // Ocultar todos los mensajes
+    hideMessage(loginError);
+    hideMessage(loginSuccess);
+    hideMessage(registerError);
+
+    // Mostrar el form correcto
+    if (target === 'register') {
+      loginForm.classList.add('hidden');
+      registerForm.classList.remove('hidden');
+      document.getElementById('register-name')?.focus();
+    } else {
+      registerForm.classList.add('hidden');
+      loginForm.classList.remove('hidden');
+      document.getElementById('login-email')?.focus();
+    }
+  }
+
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
   });
 
+  // --- Login ---
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     hideMessage(loginError);
+    hideMessage(loginSuccess);
 
     const formData = new FormData(loginForm);
     const email = formData.get('email');
@@ -66,6 +81,7 @@ export function initAuthView(onLoginSuccess) {
     }
   });
 
+  // --- Registro ---
   registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     hideMessage(registerError);
@@ -81,14 +97,10 @@ export function initAuthView(onLoginSuccess) {
     try {
       await register(name, email, password);
 
+      // Volver al tab de login con mensaje de éxito
       registerForm.reset();
-      registerForm.classList.add('hidden');
-      loginForm.classList.remove('hidden');
-
-      hideMessage(loginError);
+      switchTab('login');
       showMessage(loginSuccess, 'Cuenta creada. Ahora podés iniciar sesión.');
-
-      document.getElementById('login-email').focus();
     } catch (err) {
       showMessage(registerError, getErrorMessage(err));
     } finally {

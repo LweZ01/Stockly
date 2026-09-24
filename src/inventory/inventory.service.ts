@@ -110,4 +110,14 @@ export class InventoryService {
       relations: { user: true },
     });
   }
+  async findRecentMovements(limit = 10): Promise<InventoryMovement[]> {
+    return this.movementRepository.find({
+      order: { createdAt: 'DESC' },
+      take: limit,
+      relations: {
+        user: true,
+        product: true,
+      },
+    });
+  }
 }

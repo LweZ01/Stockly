@@ -5,118 +5,216 @@ import { confirmDialog } from '../ui/confirm-dialog.js';
 export async function initCategoriesView(root) {
   root.innerHTML = `
     <div class="view-header">
-      <h2>Categorías</h2>
-      ${isAdmin() ? '<button id="new-category-btn" type="button" class="btn btn-primary">Nueva categoría</button>' : ''}
+      <div>
+        <h2>Categorías</h2>
+        <p class="view-subtitle">Organizá el catálogo en categorías.</p>
+      </div>
     </div>
 
     <p id="category-success" class="auth-success hidden"></p>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>Descripción</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="categories-tbody"></tbody>
-    </table>
+    <div class="categories-grid" id="categories-grid"></div>
 
-    <dialog id="category-dialog">
-      <form id="category-form" class="auth-form">
-        <h3 id="category-dialog-title">Nueva categoría</h3>
+    <dialog id="category-drawer" class="drawer">
+      <form id="category-form" class="drawer-form">
+        <div class="drawer-body">
+          <h3 id="category-drawer-title">Nueva categoría</h3>
 
-        <div>
-          <label for="category-name">Nombre</label>
-          <input id="category-name" name="name" type="text" required maxlength="100" />
+          <div class="form-group">
+            <label for="category-name">Nombre</label>
+            <input id="category-name" name="name" type="text" required maxlength="100" />
+          </div>
+
+          <div class="form-group">
+            <label for="category-description">Descripción</label>
+            <textarea id="category-description" name="description" rows="3"></textarea>
+            <small class="form-help">Opcional.</small>
+          </div>
+
+          <p id="category-form-error" class="auth-error hidden"></p>
         </div>
 
-        <div>
-          <label for="category-description">Descripción</label>
-          <textarea id="category-description" name="description"></textarea>
-        </div>
-
-        <p id="category-form-error" class="auth-error hidden"></p>
-
-        <div class="dialog-actions">
-          <button type="button" id="category-dialog-cancel" class="btn btn-ghost">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Guardar</button>
+        <div class="drawer-actions">
+          <button type="button" id="category-drawer-cancel" class="btn btn-ghost">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar cambios</button>
         </div>
       </form>
     </dialog>
   `;
 
-  const dialog = root.querySelector('#category-dialog');
+  const drawer = root.querySelector('#category-drawer');
   const form = root.querySelector('#category-form');
-  const dialogTitle = root.querySelector('#category-dialog-title');
+  const drawerTitle = root.querySelector('#category-drawer-title');
   const formError = root.querySelector('#category-form-error');
   const successMsg = root.querySelector('#category-success');
-  const tbody = root.querySelector('#categories-tbody');
-  const newBtn = root.querySelector('#new-category-btn');
-  const cancelBtn = root.querySelector('#category-dialog-cancel');
+  const grid = root.querySelector('#categories-grid');
+  const cancelBtn = root.querySelector('#category-drawer-cancel');
 
-  // Última lista cargada — evita re-pedir al backend para precargar el form de edición
   let currentCategories = [];
 
+  // --- Helpers ---
   function showSuccess(message) {
     successMsg.textContent = message;
     successMsg.classList.remove('hidden');
     setTimeout(() => successMsg.classList.add('hidden'), 2500);
   }
 
-  function renderRow(category) {
+  function getInitials(name) {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .substring(0, 2)
+      .toUpperCase();
+  }
+
+  function truncate(text, length = 80) {
+    if (!text) return '';
+    return text.length > length ? text.substring(0, length) + '…' : text;
+  }
+
+  // --- Render de tarjeta ---
+  function renderCategoryCard(category) {
+    const initials = getInitials(category.name);
+    const description = category.description
+      ? truncate(category.description)
+      : '<span class="category-card-empty">Sin descripción</span>';
+
     const actions = isAdmin()
-      ? `<button type="button" class="btn btn-ghost" data-action="edit" data-id="${category.id}">Editar</button>
-         <button type="button" class="btn btn-ghost" data-action="delete" data-id="${category.id}">Eliminar</button>`
+      ? `
+        <div class="category-card-actions">
+          <button type="button" class="btn-icon" data-action="edit" data-id="${category.id}" title="Editar">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z" />
+            </svg>
+          </button>
+          <button type="button" class="btn-icon btn-icon--danger" data-action="delete" data-id="${category.id}" title="Eliminar">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              <path d="M10 11v6" />
+              <path d="M14 11v6" />
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+            </svg>
+          </button>
+        </div>
+      `
       : '';
 
     return `
-      <tr>
-        <td>${category.name}</td>
-        <td>${category.description ?? '—'}</td>
-        <td>${actions}</td>
-      </tr>
+      <div class="category-card">
+        <div class="category-card-icon">${initials}</div>
+        <h3 class="category-card-name">${category.name}</h3>
+        <p class="category-card-description">${description}</p>
+        ${actions}
+      </div>
     `;
   }
 
+  // --- Tarjeta de "Nueva categoría" ---
+  function renderNewCard() {
+    return `
+      <button type="button" class="category-card category-card--new" id="new-category-card">
+        <div class="category-card-icon category-card-icon--new">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </div>
+        <h3 class="category-card-name">Nueva categoría</h3>
+        <p class="category-card-description">Creá una nueva categoría para organizar tus productos.</p>
+      </button>
+    `;
+  }
+
+  // --- Estado vacío ---
+  function renderEmptyState() {
+    return `
+      <div class="categories-empty">
+        <div class="categories-empty-icon">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m20.59 13.41-7.17 7.17a2 2 0 0 1-2.83 0L3 13V3h10l7.59 7.59a2 2 0 0 1 0 2.82Z" />
+            <circle cx="7.5" cy="7.5" r="1.25" />
+          </svg>
+        </div>
+        <p class="categories-empty-title">Todavía no hay categorías</p>
+        <p class="categories-empty-text">
+          Creá tu primera categoría para empezar a organizar el catálogo.
+        </p>
+        ${
+          isAdmin()
+            ? `<button type="button" class="btn btn-primary" id="empty-new-category">
+                + Nueva categoría
+              </button>`
+            : ''
+        }
+      </div>
+    `;
+  }
+
+  // --- Cargar y renderizar ---
   async function loadAndRenderCategories() {
-    tbody.innerHTML = '<tr><td colspan="3">Cargando...</td></tr>';
+    grid.innerHTML = `
+      <div class="categories-loading">
+        <p class="table-empty">Cargando categorías...</p>
+      </div>
+    `;
 
     let categories;
     try {
       categories = await categoriesService.list();
     } catch {
-      tbody.innerHTML =
-        '<tr><td colspan="3" class="view-error">No se pudieron cargar las categorías.</td></tr>';
+      grid.innerHTML = `
+        <div class="categories-loading">
+          <p class="view-error">No se pudieron cargar las categorías.</p>
+        </div>
+      `;
       return;
     }
 
     currentCategories = categories;
 
     if (categories.length === 0) {
-      tbody.innerHTML =
-        '<tr><td colspan="3">No hay categorías todavía.</td></tr>';
+      grid.innerHTML = renderEmptyState();
+      bindEmptyStateEvents();
       return;
     }
 
-    tbody.innerHTML = categories.map(renderRow).join('');
+    const cards = categories.map(renderCategoryCard).join('');
+    const newCard = isAdmin() ? renderNewCard() : '';
+
+    grid.innerHTML = cards + newCard;
+
+    bindCardEvents();
   }
 
-  function openDialog(category = null) {
+  function bindCardEvents() {
+    const newCard = grid.querySelector('#new-category-card');
+    if (newCard) newCard.addEventListener('click', () => openDrawer());
+  }
+
+  function bindEmptyStateEvents() {
+    const emptyBtn = grid.querySelector('#empty-new-category');
+    if (emptyBtn) emptyBtn.addEventListener('click', () => openDrawer());
+  }
+
+  // --- Drawer ---
+  function openDrawer(category = null) {
     form.reset();
     formError.classList.add('hidden');
 
     if (category) {
-      dialogTitle.textContent = 'Editar categoría';
+      drawerTitle.textContent = 'Editar categoría';
       form.elements.name.value = category.name;
       form.elements.description.value = category.description ?? '';
       form.dataset.editingId = category.id;
     } else {
-      dialogTitle.textContent = 'Nueva categoría';
+      drawerTitle.textContent = 'Nueva categoría';
       delete form.dataset.editingId;
     }
 
-    dialog.showModal();
+    drawer.showModal();
   }
 
   async function handleSubmit(e) {
@@ -141,7 +239,7 @@ export async function initCategoriesView(root) {
         await categoriesService.create(data);
       }
 
-      dialog.close();
+      drawer.close();
       await loadAndRenderCategories();
       showSuccess(editingId ? 'Categoría actualizada.' : 'Categoría creada.');
     } catch (err) {
@@ -153,7 +251,8 @@ export async function initCategoriesView(root) {
     }
   }
 
-  async function handleTableClick(e) {
+  // --- Acciones de tarjeta ---
+  async function handleGridClick(e) {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
 
@@ -161,12 +260,14 @@ export async function initCategoriesView(root) {
 
     if (action === 'edit') {
       const category = currentCategories.find((c) => c.id === id);
-      if (category) openDialog(category);
+      if (category) openDrawer(category);
       return;
     }
 
     if (action === 'delete') {
-      const ok = await confirmDialog('¿Eliminar esta categoría?');
+      const ok = await confirmDialog(
+        '¿Eliminar esta categoría? Solo es posible si no tiene productos asociados.',
+      );
       if (!ok) return;
 
       try {
@@ -174,17 +275,18 @@ export async function initCategoriesView(root) {
         await loadAndRenderCategories();
         showSuccess('Categoría eliminada.');
       } catch (err) {
-        // El backend ya devuelve mensaje legible tanto en 409 (productos asociados)
-        // como en otros errores — se muestra tal cual, sin texto propio.
-        alert(err.body?.message ?? 'Ocurrió un error al eliminar.');
+        alert(
+          err.body?.message ??
+            'Ocurrió un error al eliminar. Verificá que no tenga productos asociados.',
+        );
       }
     }
   }
 
-  if (newBtn) newBtn.addEventListener('click', () => openDialog());
-  cancelBtn.addEventListener('click', () => dialog.close());
+  // --- Event listeners ---
+  cancelBtn.addEventListener('click', () => drawer.close());
   form.addEventListener('submit', handleSubmit);
-  tbody.addEventListener('click', handleTableClick);
+  grid.addEventListener('click', handleGridClick);
 
   await loadAndRenderCategories();
 }
