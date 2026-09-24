@@ -1,4 +1,4 @@
-# Inventory API
+# Stockly
 
 RESTful API for inventory management with role-based access control, custom JWT authentication (access token + rotating httpOnly refresh token), and full movement-tracking history, built with NestJS and a layered architecture on top of TypeORM.
 
