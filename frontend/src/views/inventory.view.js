@@ -3,6 +3,9 @@ import { productsService } from '../services/products.service.js';
 import { escapeHtml } from '../ui/escape.js';
 import { getInitials, formatDateTime } from '../ui/format.js';
 import { getErrorMessage } from '../ui/errors.js';
+import { renderInlineSpinner } from '../ui/skeleton.js';
+
+const HISTORY_COLUMNS = 5;
 
 const QUANTITY_HELP = {
   entry: 'Cantidad a sumar al stock actual.',
@@ -312,8 +315,10 @@ export async function initInventoryView(root) {
   // --- Carga de stock + historial ---
   async function loadStockAndHistory(productId) {
     selectedStockValue.textContent = '...';
-    movementsTbody.innerHTML =
-      '<tr><td colspan="5" class="table-empty">Cargando...</td></tr>';
+    movementsTbody.innerHTML = renderInlineSpinner(
+      'Cargando historial...',
+      HISTORY_COLUMNS,
+    );
 
     let stockResponse;
     let movements;

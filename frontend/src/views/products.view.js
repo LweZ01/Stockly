@@ -5,8 +5,10 @@ import { confirmDialog } from '../ui/confirm-dialog.js';
 import { escapeHtml, safeUrl } from '../ui/escape.js';
 import { getInitials, formatPrice } from '../ui/format.js';
 import { getErrorMessage } from '../ui/errors.js';
+import { renderTableSkeleton } from '../ui/skeleton.js';
 
 const PAGE_LIMIT = 10;
+const TABLE_COLUMNS = 6;
 
 export async function initProductsView(root) {
   root.innerHTML = `
@@ -266,8 +268,8 @@ export async function initProductsView(root) {
   async function loadAndRenderProducts() {
     const seq = ++loadSeq;
 
-    tbody.innerHTML =
-      '<tr><td colspan="6" class="table-empty">Cargando productos...</td></tr>';
+    tbody.innerHTML = renderTableSkeleton(TABLE_COLUMNS);
+    paginationEl.innerHTML = '';
 
     const filters = {
       search: currentFilters.search || undefined,

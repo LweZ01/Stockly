@@ -778,6 +778,95 @@ th.code {
 }
 
 /* ============================================================
+   ESTADOS DE CARGA — Skeleton (shimmer) y spinner inline
+   ============================================================ */
+
+/* --- Shimmer para tablas paginadas (ej. Productos) --- */
+.skeleton-row td {
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+
+.skeleton-block {
+  display: block;
+  height: 14px;
+  width: 100%;
+  max-width: 140px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-alt) 25%,
+    var(--color-border) 50%,
+    var(--color-surface-alt) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.3s ease-in-out infinite;
+}
+
+/* Variedad de anchos por columna para que no se vea como una grilla perfecta */
+.skeleton-row td:nth-child(1) .skeleton-block {
+  max-width: 70%;
+}
+.skeleton-row td:nth-child(2) .skeleton-block {
+  max-width: 80px;
+}
+.skeleton-row td:nth-child(5) .skeleton-block,
+.skeleton-row td:nth-child(6) .skeleton-block {
+  max-width: 60px;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-block {
+    animation: none;
+    background: var(--color-surface-alt);
+  }
+}
+
+/* --- Spinner inline para cargas cortas (ej. historial de Inventario) --- */
+.table-loading {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: var(--space-6) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-border-strong);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spinner-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spinner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 1.4s;
+  }
+}
+
+/* ============================================================
    VISTA: PRODUCTOS
    ============================================================ */
 

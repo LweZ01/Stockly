@@ -44,11 +44,17 @@ export class CreateProductDto {
   price: number;
 
   @ApiPropertyOptional({
-    description: 'URL de la imagen del producto',
+    description: 'URL de la imagen del producto (http o https)',
     example: 'https://example.com/images/ibuprofeno.png',
   })
   @IsOptional()
-  @IsUrl()
+  @IsUrl(
+    { protocols: ['http', 'https'], require_protocol: true },
+    {
+      message:
+        'imageUrl debe ser una URL válida que empiece con http:// o https://',
+    },
+  )
   imageUrl?: string;
 
   @ApiPropertyOptional({

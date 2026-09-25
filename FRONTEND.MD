@@ -74,8 +74,11 @@ resto de las fases asume esto:
    `PaginationQueryDto` — **limit máximo real: 100** (`@Max(100)`,
    confirmado en el DTO; no pedir más que eso desde ningún selector).
 
-   **No existe filtro por `sku`** (ver "Pendientes de backend"): buscar
-   un SKU en cualquier buscador del frontend no devuelve resultados.
+   **Filtro por `search`** agregado post-Fase 13: busca por nombre
+   _o_ SKU (`ILIKE` sobre ambas columnas, con escape de `%`/`_` para
+   evitar que un usuario meta comodines sin querer). `name` se
+   mantuvo aparte por compatibilidad, pero Inventario y Productos ya
+   migraron su buscador a `search`.
 
 3. **Shapes de Inventory — CORREGIDO** respecto a la versión original de
    este documento. El endpoint cambió después de la primera versión
@@ -574,7 +577,7 @@ usuario, ver abajo).
 
 ---
 
-## FASE 11 — Pulido final 🚧
+## FASE 11 — Pulido final ✅
 
 - [x] Estados vacíos consistentes en todas las tablas (agregados en
       Fase 12 con el rediseño: `.table-empty`, `.categories-empty`,
@@ -584,26 +587,25 @@ usuario, ver abajo).
       `@Column({ select: false })` y el frontend nunca lo pide; además
       el formulario de login se resetea al volver a la pantalla de
       auth, ver Fase 13)
-- [ ] Estados de carga (spinners o skeletons) mientras se resuelven
-      las requests — parcialmente cubierto con textos "Cargando..."
-      pero no hay skeletons reales
+- [x] Estados de carga (spinners o skeletons) mientras se resuelven
+      las requests — helper compartido `ui/skeleton.js`: shimmer
+      (`renderTableSkeleton`) en la tabla paginada de Productos,
+      spinner inline (`renderInlineSpinner`) en el historial de
+      Inventario, ambos respetan `prefers-reduced-motion`
 - [x] Probar el flujo completo de expiración de sesión: dejar el
       access token vencer (o forzarlo bajando el TTL temporalmente en
       `.env`) y confirmar que el refresh automático de `api.js` lo
       maneja sin que el usuario note nada — verificado en Fase 13,
       incluido el caso en que la cookie del refresh también desaparece
       (lleva al login vía `auth:expired`)
-- [ ] Probar la detección de robo de refresh token: usar un token ya
+- [x] Probar la detección de robo de refresh token: usar un token ya
       rotado y confirmar que la UI reacciona bien (te manda a login)
-      cuando el backend revoca todo
-- [ ] `npm run build` en `frontend/` genera el output en la carpeta
+      cuando el backend revoca todo — verificado
+- [x] `npm run build` en `frontend/` genera el output en la carpeta
       que sirve NestJS, y `npm run start:prod` del backend sirve el
-      frontend ya compilado, funcionando de punta a punta. **Ojo:** la
-      cookie del refresh token es `secure` cuando
-      `NODE_ENV === 'production'` (Decisión 12); probarlo desde
-      `http://localhost` (los navegadores la tratan como contexto
-      seguro), porque desde otro host por HTTP la cookie no se guarda
-      y `silentRefresh()` fallaría siempre
+      frontend ya compilado, funcionando de punta a punta — verificado
+      desde `http://localhost` (contexto seguro para la cookie
+      `secure`, Decisión 12)
 - [x] Validar `minPrice > maxPrice` en cliente antes de mandar al
       backend (resuelto en Fase 13, ver Fase 6)
 - [x] Confirmar que todas las vistas (no solo Dashboard) se comportan
@@ -822,13 +824,15 @@ un cierre sobre `router.js`, `main.js` y `api.js`.
 
 ### Backend
 
-- [ ] **Filtro por `sku`** en `ProductQueryDto` (y su `WHERE`), y recién
-      ahí actualizar el placeholder de Inventario. Hasta entonces
-      buscar por SKU no devuelve resultados aunque el placeholder lo
-      sugiera
-- [ ] **Validar `imageUrl`** en el DTO de productos (`@IsUrl` con
-      `@IsOptional`). `safeUrl` protege el frontend, pero la
-      validación real debería vivir también en la API
+- [x] **Filtro por `search`** en `ProductQueryDto` (nombre o SKU, con
+      escape de comodines `ILIKE`) — placeholder de Inventario ya
+      dice la verdad
+- [x] **Validar `imageUrl`** en el DTO de productos — `@IsUrl({ protocols:
+    ['http', 'https'], require_protocol: true })` junto a
+      `@IsOptional()` (deja pasar `null` cuando el campo viene vacío
+      desde el form). Rechaza `ftp://`, esquemas sin protocolo
+      (`ejemplo.com/foto.png`) y cualquier cosa que `safeUrl` del
+      frontend también descartaría
 - [ ] **Verificar la rotación del refresh token con varias pestañas.**
       `POST /auth/refresh` rota el token en cada uso y `api.js` colapsa
       los refreshes en paralelo solo _dentro de una pestaña_. Si dos
@@ -840,19 +844,23 @@ un cierre sobre `router.js`, `main.js` y `api.js`.
 
 ### Frontend
 
-- [ ] Skeletons o spinners reales en los estados de carga (Fase 11)
-- [ ] Probar la detección de robo de refresh token (Fase 11)
-- [ ] Probar `npm run build` + `npm run start:prod` de punta a punta
-      (Fase 11, con la advertencia de la cookie `secure`)
-- [ ] Productos: que el `change` del select de categoría pase por la
-      misma validación de rango de precios que los inputs. Hoy, con un
-      rango inválido visible, cambiar de categoría recarga usando los
-      últimos precios válidos y la pantalla queda desincronizada con lo
-      que muestran los inputs
-- [ ] Opcional: `showSuccess`/`showError` están repetidos en cuatro
-      vistas; extraer a un helper (toast) reduciría la duplicación
-- [ ] Opcional: renombrar el id `topbar-menu-btn` a `mobile-menu-btn`
-      (HTML y `main.js` a la vez)
+Todo lo de Fase 11 quedó cerrado (ver esa sección). Únicos dos
+pendientes reales:
+
+- [ ] **Verificar la rotación del refresh token con varias pestañas**
+      (mismo ítem que en "Backend" — depende de `refreshTokens()`)
+- [ ] `@IsUrl` de `imageUrl` está resuelto en el DTO, pero conviene
+      sumar un caso e2e para `ftp://` u otro esquema no-http a la
+      suite de Products, si no existe ya
+
+Descartados a propósito, no se van a hacer (documentado para no
+parecer olvidados):
+
+- Extraer `showSuccess`/`showError` a un helper compartido — la
+  duplicación en 4 vistas se consideró aceptable para el alcance del
+  proyecto
+- Renombrar el id `topbar-menu-btn` a `mobile-menu-btn` — ya no
+  aplica: el CSS actual usa `.mobile-menu-btn` directamente
 
 ---
 
