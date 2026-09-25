@@ -246,7 +246,7 @@ describe('InventoryController (e2e)', () => {
   });
 
   describe('GET /inventory/products/:productId/movements', () => {
-    it('devuelve el historial ordenado del más reciente al más antiguo', async () => {
+    it('devuelve el historial paginado, ordenado del más reciente al más antiguo', async () => {
       const product = await createProduct();
 
       await request(app.getHttpServer())
@@ -265,12 +265,38 @@ describe('InventoryController (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(res.body).toHaveLength(2);
-      expect(res.body[0].quantity).toBe(20);
-      expect(res.body[1].quantity).toBe(10);
+      expect(res.body.total).toBe(2);
+      expect(res.body.page).toBe(1);
+      expect(res.body.limit).toBe(10);
+      expect(res.body.data).toHaveLength(2);
+      expect(res.body.data[0].quantity).toBe(20);
+      expect(res.body.data[1].quantity).toBe(10);
     });
 
-    it('devuelve un array vacío si el producto no tiene movimientos', async () => {
+    it('respeta page y limit en la query', async () => {
+      const product = await createProduct();
+
+      for (let i = 0; i < 3; i++) {
+        await request(app.getHttpServer())
+          .post('/inventory/movements')
+          .set('Authorization', `Bearer ${accessToken}`)
+          .send({ productId: product.id, type: 'entry', quantity: 1 })
+          .expect(201);
+      }
+
+      const res = await request(app.getHttpServer())
+        .get(`/inventory/products/${product.id}/movements`)
+        .query({ page: 2, limit: 2 })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.total).toBe(3);
+      expect(res.body.page).toBe(2);
+      expect(res.body.limit).toBe(2);
+    });
+
+    it('devuelve data vacía y total 0 si el producto no tiene movimientos', async () => {
       const product = await createProduct();
 
       const res = await request(app.getHttpServer())
@@ -278,7 +304,37 @@ describe('InventoryController (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(res.body).toEqual([]);
+      expect(res.body).toEqual({ data: [], total: 0, page: 1, limit: 10 });
+    });
+  });
+
+  describe('GET /inventory/movements/recent', () => {
+    it('devuelve movimientos recientes paginados, con tope de limit en 50', async () => {
+      const product = await createProduct();
+
+      await request(app.getHttpServer())
+        .post('/inventory/movements')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ productId: product.id, type: 'entry', quantity: 10 })
+        .expect(201);
+
+      const res = await request(app.getHttpServer())
+        .get('/inventory/movements/recent')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(res.body).toHaveProperty('data');
+      expect(res.body).toHaveProperty('total');
+      expect(res.body).toHaveProperty('page');
+      expect(res.body).toHaveProperty('limit');
+    });
+
+    it('rechaza (400) limit mayor a 50', async () => {
+      await request(app.getHttpServer())
+        .get('/inventory/movements/recent')
+        .query({ limit: 100 })
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(400);
     });
   });
 

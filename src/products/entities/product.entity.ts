@@ -33,6 +33,9 @@ export class Product {
   @Column({ default: true })
   isActive: boolean;
 
+  @Column({ type: 'int', default: 0 })
+  movementsSinceCheckpoint: number;
+
   @ManyToOne(() => Category, (category) => category.products, {
     nullable: true,
   })

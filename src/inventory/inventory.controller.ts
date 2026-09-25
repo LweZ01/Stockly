@@ -12,6 +12,8 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { InventoryService } from './inventory.service.js';
 import { CreateMovementDto } from './dto/create-movement.dto.js';
+import { RecentPaginationQueryDto } from './dto/recent-pagination-query.dto.js';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../common/guards/roles.guard.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
@@ -53,15 +55,18 @@ export class InventoryController {
   @ApiOperation({
     summary: 'Historial de movimientos de un producto (solo ADMIN)',
   })
-  getHistory(@Param('productId', ParseUUIDPipe) productId: string) {
-    return this.inventoryService.findHistoryByProduct(productId);
+  getHistory(
+    @Param('productId', ParseUUIDPipe) productId: string,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.inventoryService.findHistoryByProduct(productId, query);
   }
 
   @Get('movements/recent')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  async getRecentMovements(@Query('limit') limit?: string) {
-    const parsedLimit = limit ? Math.min(parseInt(limit, 10), 50) : 10;
-    return this.inventoryService.findRecentMovements(parsedLimit);
+  @ApiOperation({
+    summary: 'Movimientos recientes de todos los productos (solo ADMIN)',
+  })
+  getRecentMovements(@Query() query: RecentPaginationQueryDto) {
+    return this.inventoryService.findRecentMovements(query);
   }
 }

@@ -8,8 +8,11 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 
 import { InventoryMovement } from './entities/inventory-movement.entity.js';
 import { MovementType } from './enums/movement-type.enum.js';
+import { CHECKPOINT_THRESHOLD } from './constants/checkpoint.constants.js';
 import { Product } from '../products/entities/product.entity.js';
 import { CreateMovementDto } from './dto/create-movement.dto.js';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
+import { RecentPaginationQueryDto } from './dto/recent-pagination-query.dto.js';
 
 type MovementData = Omit<CreateMovementDto, 'userId'>;
 
@@ -85,12 +88,29 @@ export class InventoryService {
         );
       }
 
-      if (dto.type === MovementType.EXIT) {
-        const currentStock = await this.getCurrentStock(dto.productId, manager);
+      // Un ADJUSTMENT manual ya fija el stock a un valor exacto y es, por
+      // definición, un checkpoint: no hace falta leer el stock actual.
+      if (dto.type === MovementType.ADJUSTMENT) {
+        const movement = manager.create(InventoryMovement, {
+          ...dto,
+          product: { id: dto.productId },
+          user: { id: userId },
+        });
+        const savedMovement = await manager.save(movement);
 
-        if (currentStock < dto.quantity) {
-          throw new BadRequestException('Stock insuficiente');
-        }
+        await manager.update(Product, product.id, {
+          movementsSinceCheckpoint: 0,
+        });
+
+        return savedMovement;
+      }
+
+      // ENTRY / EXIT: necesitamos el stock actual para validar EXIT y,
+      // en cualquier caso, para poder escribir el checkpoint si corresponde.
+      const currentStock = await this.getCurrentStock(dto.productId, manager);
+
+      if (dto.type === MovementType.EXIT && currentStock < dto.quantity) {
+        throw new BadRequestException('Stock insuficiente');
       }
 
       const movement = manager.create(InventoryMovement, {
@@ -98,26 +118,64 @@ export class InventoryService {
         product: { id: dto.productId },
         user: { id: userId },
       });
+      const savedMovement = await manager.save(movement);
 
-      return manager.save(movement);
+      const newCount = product.movementsSinceCheckpoint + 1;
+
+      if (newCount >= CHECKPOINT_THRESHOLD) {
+        const newStock =
+          dto.type === MovementType.ENTRY
+            ? currentStock + dto.quantity
+            : currentStock - dto.quantity;
+
+        const checkpoint = manager.create(InventoryMovement, {
+          type: MovementType.ADJUSTMENT,
+          quantity: newStock,
+          reason: 'Checkpoint automático (mantenimiento interno)',
+          product: { id: dto.productId },
+          user: null,
+        });
+        await manager.save(checkpoint);
+
+        await manager.update(Product, product.id, {
+          movementsSinceCheckpoint: 0,
+        });
+      } else {
+        await manager.update(Product, product.id, {
+          movementsSinceCheckpoint: newCount,
+        });
+      }
+
+      return savedMovement;
     });
   }
 
-  async findHistoryByProduct(productId: string): Promise<InventoryMovement[]> {
-    return this.movementRepository.find({
+  async findHistoryByProduct(productId: string, query: PaginationQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+
+    const [data, total] = await this.movementRepository.findAndCount({
       where: { product: { id: productId } },
       order: { createdAt: 'DESC' },
       relations: { user: true },
-    });
-  }
-  async findRecentMovements(limit = 10): Promise<InventoryMovement[]> {
-    return this.movementRepository.find({
-      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
       take: limit,
-      relations: {
-        user: true,
-        product: true,
-      },
     });
+
+    return { data, total, page, limit };
+  }
+
+  async findRecentMovements(query: RecentPaginationQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+
+    const [data, total] = await this.movementRepository.findAndCount({
+      order: { createdAt: 'DESC' },
+      relations: { user: true, product: true },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return { data, total, page, limit };
   }
 }

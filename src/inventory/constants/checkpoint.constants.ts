@@ -1,0 +1,1 @@
+export const CHECKPOINT_THRESHOLD = 50;
