@@ -17,9 +17,14 @@ interface JwtConfig {
   refreshExpiresIn: StringValue;
 }
 
+interface RedisConfig {
+  url: string;
+}
+
 interface AppConfig {
   db: DbConfig;
   jwt: JwtConfig;
+  redis: RedisConfig;
 }
 
 const REQUIRED_ENVS = [
@@ -30,6 +35,7 @@ const REQUIRED_ENVS = [
   'DB_NAME',
   'JWT_ACCESS_SECRET',
   'JWT_REFRESH_SECRET',
+  'REDIS_URL',
 ] as const;
 
 function required(key: string): string {
@@ -83,6 +89,9 @@ function loadConfig(): AppConfig {
       refreshSecret: required('JWT_REFRESH_SECRET'),
       refreshExpiresIn: (process.env.JWT_REFRESH_EXPIRES_IN ??
         '7d') as StringValue,
+    },
+    redis: {
+      url: required('REDIS_URL'),
     },
   };
 

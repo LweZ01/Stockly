@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { createHash } from 'node:crypto';
+import { Redis } from 'ioredis';
 
 import { Product } from './entities/product.entity.js';
 import { Category } from '../categories/entities/category.entity.js';
@@ -8,16 +10,27 @@ import { CreateProductDto } from './dto/create-product.dto.js';
 import { UpdateProductDto } from './dto/update-product.dto.js';
 import { ProductQueryDto } from './dto/product-query.dto.js';
 import { handlePostgresError } from '../common/utils/postgres-error.util.js';
+import { REDIS_CLIENT } from '../redis/redis.constants.js';
+
+// ioredis, bajo resolución "nodenext", no expone el named export `Redis`
+// como tipo utilizable directamente (solo como valor/namespace). Se usa
+// InstanceType<typeof Redis> para obtener el tipo de instancia real.
+type RedisClient = InstanceType<typeof Redis>;
 
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, '\\$&');
 }
+
+const CACHE_TTL_SECONDS = 60;
+const CACHE_VERSION_KEY = 'products:cache-version';
 
 @Injectable()
 export class ProductsService {
   constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @Inject(REDIS_CLIENT)
+    private readonly redis: RedisClient,
   ) {}
 
   async create(dto: CreateProductDto): Promise<Product> {
@@ -27,7 +40,9 @@ export class ProductsService {
     });
 
     try {
-      return await this.productRepository.save(product);
+      const saved = await this.productRepository.save(product);
+      await this.bumpCacheVersion();
+      return saved;
     } catch (error) {
       handlePostgresError(error);
       throw error;
@@ -38,9 +53,17 @@ export class ProductsService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
 
-    // Los filtros son comunes a la query de datos y a la de conteo.
-    // Se aplican sobre un query builder base sin joins ni paginación,
-    // así el COUNT nunca carga relaciones que no necesita.
+    const cacheKey = await this.buildListCacheKey(query, page, limit);
+    const cached = await this.redis.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached) as {
+        data: Product[];
+        total: number;
+        page: number;
+        limit: number;
+      };
+    }
+
     const applyFilters = (
       qb: ReturnType<Repository<Product>['createQueryBuilder']>,
     ) => {
@@ -80,18 +103,11 @@ export class ProductsService {
       return qb;
     };
 
-    // Query de conteo: sin join, sin skip/take. Postgres puede resolverla
-    // con un index-only scan sobre los índices de isActive/categoryId/price.
     const countQb = applyFilters(
       this.productRepository.createQueryBuilder('product'),
     );
     const total = await countQb.getCount();
 
-    // Query de datos: con el join para traer la categoría, paginada.
-    // NOTA: cuando hay leftJoinAndSelect + skip/take, TypeORM arma una
-    // subquery interna para paginar sin duplicar filas por el join —
-    // por eso un COUNT(*) OVER() en esta misma query da el tamaño de
-    // la página, no el total real. De ahí la necesidad de separarlo.
     const dataQb = applyFilters(
       this.productRepository.createQueryBuilder('product'),
     )
@@ -103,7 +119,16 @@ export class ProductsService {
 
     const data = await dataQb.getMany();
 
-    return { data, total, page, limit };
+    const result = { data, total, page, limit };
+
+    await this.redis.set(
+      cacheKey,
+      JSON.stringify(result),
+      'EX',
+      CACHE_TTL_SECONDS,
+    );
+
+    return result;
   }
 
   async findOne(id: string): Promise<Product> {
@@ -137,7 +162,9 @@ export class ProductsService {
     }
 
     try {
-      return await this.productRepository.save(product);
+      const saved = await this.productRepository.save(product);
+      await this.bumpCacheVersion();
+      return saved;
     } catch (error) {
       handlePostgresError(error);
       throw error;
@@ -147,5 +174,48 @@ export class ProductsService {
   async remove(id: string): Promise<void> {
     await this.findOne(id);
     await this.productRepository.update(id, { isActive: false });
+    await this.bumpCacheVersion();
+  }
+
+  /**
+   * Cachear /products es más delicado que /categories porque los filtros
+   * son arbitrarios (nombre, categoría, rango de precio, página, límite):
+   * no hay una key fija que invalidar en cada mutación, y no es viable
+   * buscar/borrar por patrón (SCAN/KEYS) en Redis bajo carga real.
+   *
+   * En su lugar, cada key de listado incluye la "versión" actual del
+   * caché de productos. Una mutación (create/update/remove) simplemente
+   * incrementa esa versión con INCR (atómico) — todas las keys viejas
+   * quedan huérfanas y expiran solas por TTL, sin necesidad de borrarlas.
+   */
+  private async getCacheVersion(): Promise<number> {
+    const version = await this.redis.get(CACHE_VERSION_KEY);
+    return version ? Number(version) : 0;
+  }
+
+  private async bumpCacheVersion(): Promise<void> {
+    await this.redis.incr(CACHE_VERSION_KEY);
+  }
+
+  private async buildListCacheKey(
+    query: ProductQueryDto,
+    page: number,
+    limit: number,
+  ): Promise<string> {
+    const version = await this.getCacheVersion();
+
+    const filterPayload = JSON.stringify({
+      name: query.name ?? null,
+      search: query.search ?? null,
+      categoryId: query.categoryId ?? null,
+      minPrice: query.minPrice ?? null,
+      maxPrice: query.maxPrice ?? null,
+      page,
+      limit,
+    });
+
+    const hash = createHash('sha1').update(filterPayload).digest('hex');
+
+    return `products:list:v${version}:${hash}`;
   }
 }

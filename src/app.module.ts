@@ -12,11 +12,13 @@ import { CategoriesModule } from './categories/categories.module.js';
 import { ProductsModule } from './products/products.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { RedisModule } from './redis/redis.module.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({ useFactory: typeOrmConfig }),
+    RedisModule,
     AuthModule,
     UsersModule,
     CategoriesModule,
