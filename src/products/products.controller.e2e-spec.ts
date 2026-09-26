@@ -7,6 +7,7 @@ import {
   truncateAll,
   createAdminAndLogin,
   createUserAndLogin,
+  flushRedis,
 } from '../../test/utils/test-app.js';
 
 describe('ProductsController (e2e)', () => {
@@ -22,6 +23,7 @@ describe('ProductsController (e2e)', () => {
 
   beforeEach(async () => {
     await truncateAll(dataSource);
+    await flushRedis(app);
     ({ accessToken } = await createAdminAndLogin(app));
     ({ accessToken: userToken } = await createUserAndLogin(app));
   });

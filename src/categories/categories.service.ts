@@ -14,12 +14,9 @@ import { UpdateCategoryDto } from './dto/update-category.dto.js';
 import { handlePostgresError } from '../common/utils/postgres-error.util.js';
 import { REDIS_CLIENT } from '../redis/redis.constants.js';
 
-// ioredis, bajo resolución "nodenext", no expone el named export `Redis`
-// como tipo utilizable directamente (solo como valor/namespace). Se usa
-// InstanceType<typeof Redis> para obtener el tipo de instancia real.
 type RedisClient = InstanceType<typeof Redis>;
 
-const CACHE_TTL_SECONDS = 300; // catálogo pequeño, cambia poco: TTL largo
+const CACHE_TTL_SECONDS = 300;
 const CACHE_KEY_ALL = 'categories:all';
 const CACHE_KEY_PREFIX_ONE = 'categories:one:';
 

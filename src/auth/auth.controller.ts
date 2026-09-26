@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiOperation,
   ApiTags,
@@ -38,6 +39,7 @@ export class AuthController {
   @Post('register')
   @ApiOperation({ summary: 'Registrar un nuevo usuario' })
   @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { limit: 3, ttl: 60 * 60 * 1000 } })
   async register(@Body() dto: RegisterDto) {
     const user = await this.authService.register(dto);
     const { password, ...safeUser } = user;
@@ -51,6 +53,7 @@ export class AuthController {
       'Devuelve un access token en el body y setea el refresh token como cookie httpOnly.',
   })
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60 * 1000 } })
   async login(
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,

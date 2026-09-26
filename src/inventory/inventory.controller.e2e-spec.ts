@@ -7,6 +7,7 @@ import {
   truncateAll,
   createAdminAndLogin,
   createUserAndLogin,
+  flushRedis,
 } from '../../test/utils/test-app.js';
 import { ProductsService } from '../products/products.service.js';
 
@@ -25,6 +26,7 @@ describe('InventoryController (e2e)', () => {
 
   beforeEach(async () => {
     await truncateAll(dataSource);
+    await flushRedis(app);
     ({ accessToken } = await createAdminAndLogin(app));
     ({ accessToken: userToken } = await createUserAndLogin(app));
   });

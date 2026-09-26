@@ -12,9 +12,6 @@ import { ProductQueryDto } from './dto/product-query.dto.js';
 import { handlePostgresError } from '../common/utils/postgres-error.util.js';
 import { REDIS_CLIENT } from '../redis/redis.constants.js';
 
-// ioredis, bajo resolución "nodenext", no expone el named export `Redis`
-// como tipo utilizable directamente (solo como valor/namespace). Se usa
-// InstanceType<typeof Redis> para obtener el tipo de instancia real.
 type RedisClient = InstanceType<typeof Redis>;
 
 function escapeLike(value: string): string {
@@ -177,17 +174,6 @@ export class ProductsService {
     await this.bumpCacheVersion();
   }
 
-  /**
-   * Cachear /products es más delicado que /categories porque los filtros
-   * son arbitrarios (nombre, categoría, rango de precio, página, límite):
-   * no hay una key fija que invalidar en cada mutación, y no es viable
-   * buscar/borrar por patrón (SCAN/KEYS) en Redis bajo carga real.
-   *
-   * En su lugar, cada key de listado incluye la "versión" actual del
-   * caché de productos. Una mutación (create/update/remove) simplemente
-   * incrementa esa versión con INCR (atómico) — todas las keys viejas
-   * quedan huérfanas y expiran solas por TTL, sin necesidad de borrarlas.
-   */
   private async getCacheVersion(): Promise<number> {
     const version = await this.redis.get(CACHE_VERSION_KEY);
     return version ? Number(version) : 0;

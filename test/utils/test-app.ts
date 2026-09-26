@@ -11,6 +11,7 @@ import { UsersService } from '../../src/users/users.service.js';
 import { User } from '../../src/users/entities/user.entity.js';
 import { Role } from '../../src/common/enums/role.enum.js';
 import { HttpExceptionFilter } from '../../src/common/filters/http-exception.filter.js';
+import { REDIS_CLIENT } from '../../src/redis/redis.constants.js';
 
 export async function createTestApp(): Promise<NestExpressApplication> {
   const moduleRef = await Test.createTestingModule({
@@ -33,6 +34,11 @@ export async function truncateAll(dataSource: DataSource): Promise<void> {
   await dataSource.query(
     `TRUNCATE TABLE inventory_movements, refresh_tokens, products, categories, users RESTART IDENTITY CASCADE;`,
   );
+}
+
+export async function flushRedis(app: INestApplication): Promise<void> {
+  const redis = app.get(REDIS_CLIENT);
+  await redis.flushdb();
 }
 
 export async function createAdminAndLogin(

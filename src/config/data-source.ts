@@ -12,4 +12,10 @@ export const AppDataSource = new DataSource({
   entities: ['src/**/*.entity.ts'],
   migrations: ['src/database/migrations/*.ts'],
   synchronize: false,
+  extra: {
+    max: env.db.poolMax,
+    min: env.db.poolMin,
+    idleTimeoutMillis: env.db.poolIdleTimeoutMs,
+    connectionTimeoutMillis: env.db.poolConnectionTimeoutMs,
+  },
 });

@@ -21,6 +21,7 @@ RESTful API for inventory management with role-based access control, custom JWT 
 
 - Runtime: Node.js + NestJS (ES Modules)
 - Database: PostgreSQL + TypeORM (versioned migrations, no `synchronize`)
+- Caching: Redis (`ioredis`) — response caching for `/products` and `/categories`
 - Authentication: JWT (`@nestjs/jwt`, `passport-jwt`) + bcrypt
 - Validation: `class-validator` / `class-transformer`
 - Documentation: Swagger (`@nestjs/swagger`)
@@ -430,7 +431,7 @@ Common error codes:
 - Swagger UI is disabled in production
 - Environment variables are validated at boot — the application fails fast with a clear error if a required variable is missing, instead of failing unpredictably later
 
-## Resolved
+## Resolved (Performance Audit)
 
 Following a backend performance audit targeting ~1,000 concurrent users and a 5,000-product catalog, the following bottlenecks were identified and fixed:
 
@@ -438,9 +439,11 @@ Following a backend performance audit targeting ~1,000 concurrent users and a 5,
 - **`getManyAndCount()` on `/products` issued two queries, one of them carrying an unnecessary join.** Split into two explicit queries sharing the same filter logic: a lightweight `COUNT` with no join (able to use the new indexes directly), and a separate paginated query with the `category` join. A single windowed query (`COUNT(*) OVER()`) was attempted first, but TypeORM generates a subquery for pagination when a `leftJoinAndSelect` is combined with `skip`/`take`, which silently scoped the window function to the page size instead of the full result set — caught by the existing e2e pagination tests.
 - **Computed stock (`getCurrentStock()`) had no checkpoint, so it summed the product's entire movement history on every read** — and did so while holding a `pessimistic_write` lock during `registerMovement()`, serializing concurrent writes on high-turnover products. Added a `movementsSinceCheckpoint` counter column on `Product`; once it reaches a threshold (50), `registerMovement()` automatically inserts an `ADJUSTMENT` checkpoint with the computed stock and resets the counter, all within the same transaction. This bounds `getCurrentStock()` to summing at most 50 rows regardless of a product's total movement history.
 - **`findHistoryByProduct()` and `findRecentMovements()` returned unbounded arrays.** Both now accept pagination (`PaginationQueryDto` for the former, a stricter `RecentPaginationQueryDto` capped at 50 items for the latter, since a "recent activity" feed has no real use case for deep pagination) and return the same `{ data, total, page, limit }` shape already used by `/products`.
+- **`/products` and `/categories` reads hit Postgres directly on every request**, with no caching layer, despite being public, unauthenticated, high-traffic endpoints. Added a Redis cache (`ioredis`) for both:
+  - `/categories`, a small catalog that changes infrequently, is cached under a single key with a 5-minute TTL, invalidated directly (`DEL`) on `create`/`update`/`remove`.
+  - `/products` accepts arbitrary filter/pagination combinations, so there's no fixed key to invalidate and scanning Redis by pattern (`SCAN`/`KEYS`) doesn't hold up under real load. Instead, each cache key embeds a `products:cache-version` counter; a mutation simply `INCR`s that counter, which orphans every previously cached key at once (an O(1) write instead of a scan-and-delete). Orphaned keys expire naturally via a 60-second TTL, which also acts as a safety net for any change made outside the API.
 
 ## Known Trade-offs
 
 - **The final Docker image is heavier than necessary** (~110MB instead of an expected ~60MB) due to a known issue with `npm ci --omit=dev` and the current lockfile not marking every devDependency correctly on Node 22 / npm 10–11. Documented rather than silently left as a surprise; doesn't affect runtime behavior.
 - **Pagination is offset-based (`OFFSET`/`LIMIT`)**, not keyset/cursor-based. A conscious trade-off: simple to implement and correct for the current catalog size (~5,000 products), but `OFFSET` still has to scan and discard every prior row on deep pages, and results can shift if rows are inserted/deleted between page requests. Worth revisiting with a cursor-based approach if the catalog grows an order of magnitude larger.
-- **`/products` and `/categories` reads hit Postgres directly on every request**, with no caching layer. Both are public, unauthenticated, high-traffic endpoints, so under concurrent load this is the next likely bottleneck — a Redis cache with short TTLs and write-side invalidation is the planned next step.

@@ -16,4 +16,10 @@ export const typeOrmConfig = (): TypeOrmModuleOptions => ({
   entities: [Product, Category, User, InventoryMovement, RefreshToken],
   synchronize: false,
   migrationsRun: false,
+  extra: {
+    max: env.db.poolMax,
+    min: env.db.poolMin,
+    idleTimeoutMillis: env.db.poolIdleTimeoutMs,
+    connectionTimeoutMillis: env.db.poolConnectionTimeoutMs,
+  },
 });
