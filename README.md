@@ -433,7 +433,7 @@ Common error codes:
 
 ## Resolved (Performance Audit)
 
-Following a backend performance audit targeting ~1,000 concurrent users and a 5,000-product catalog, the following bottlenecks were identified and fixed:
+Following a backend performance audit targeting ~1,000 concurrent users and a 10,000-product catalog, the following bottlenecks were identified and fixed:
 
 - **Text search and filtered listing had no supporting indexes.** Added a migration creating a composite index on `(isActive, categoryId)` and `(isActive, price)` on `products`, plus GIN trigram indexes (`pg_trgm`) on `name` and `sku` so `ILIKE '%text%'` substring search can use an index instead of a full sequential scan. Also added a composite index and a partial index (`WHERE type = 'ADJUSTMENT'`) on `inventory_movements(productId, createdAt)`, matching the exact access patterns of `getCurrentStock()`.
 - **`getManyAndCount()` on `/products` issued two queries, one of them carrying an unnecessary join.** Split into two explicit queries sharing the same filter logic: a lightweight `COUNT` with no join (able to use the new indexes directly), and a separate paginated query with the `category` join. A single windowed query (`COUNT(*) OVER()`) was attempted first, but TypeORM generates a subquery for pagination when a `leftJoinAndSelect` is combined with `skip`/`take`, which silently scoped the window function to the page size instead of the full result set — caught by the existing e2e pagination tests.
