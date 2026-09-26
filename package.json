@@ -1,8 +1,8 @@
 {
-  "name": "nest-app",
-  "version": "0.0.1",
-  "description": "",
-  "author": "",
+  "name": "Stockly",
+  "version": "1.0.0",
+  "description": "Inventory management system",
+  "author": "LweZ",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",

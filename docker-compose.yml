@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: inventory-db
+    container_name: Stockly-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: inventory_user
@@ -21,7 +21,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: inventory-api
+    container_name: Stockly-api
     restart: unless-stopped
     depends_on:
       postgres:
@@ -43,7 +43,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: inventory-redis
+    container_name: Stockly-redis
     restart: unless-stopped
     ports:
       - '6379:6379'
@@ -57,7 +57,7 @@ services:
 
   postgres-test:
     image: postgres:16-alpine
-    container_name: inventory-db-test
+    container_name: Stockly-db-test
     restart: unless-stopped
     profiles: ['test']
     environment:
