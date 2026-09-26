@@ -497,5 +497,3 @@ npm install
 npm run dev       # Vite dev server with API proxy to localhost:3000
 npm run build     # Outputs to ../public, served by the API in production
 ```
-
-For the full build-out checklist (13 phases, from Vite setup through final polish, including every real bug hit and fixed along the way), see [`FRONTEND.md`](./FRONTEND.MD).
