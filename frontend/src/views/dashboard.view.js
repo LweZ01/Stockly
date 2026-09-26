@@ -176,7 +176,10 @@ export async function initDashboardView(root) {
     if (!activityEl) return;
 
     try {
-      const movements = await inventoryService.getRecentMovements(5);
+      // getRecentMovements() ahora devuelve { data, total, page, limit }
+      // en vez de un array plano (paginación agregada en el backend).
+      const response = await inventoryService.getRecentMovements(5);
+      const movements = response.data;
 
       if (!movements || movements.length === 0) {
         activityEl.innerHTML = `

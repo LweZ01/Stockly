@@ -321,9 +321,9 @@ export async function initInventoryView(root) {
     );
 
     let stockResponse;
-    let movements;
+    let historyResponse;
     try {
-      [stockResponse, movements] = await Promise.all([
+      [stockResponse, historyResponse] = await Promise.all([
         inventoryService.getStock(productId),
         inventoryService.getHistory(productId),
       ]);
@@ -339,6 +339,10 @@ export async function initInventoryView(root) {
     if (selectedProduct?.id !== productId) return;
 
     selectedStockValue.textContent = stockResponse.stock;
+
+    // getHistory() ahora devuelve { data, total, page, limit } en vez de
+    // un array plano (paginación agregada en el backend).
+    const movements = historyResponse.data;
 
     if (movements.length === 0) {
       movementsTbody.innerHTML =
