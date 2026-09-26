@@ -251,7 +251,7 @@ flowchart TD
 ## Installation
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/LweZ01/Stockly.git
 cd stockly
 npm install
 cp .env.example .env
