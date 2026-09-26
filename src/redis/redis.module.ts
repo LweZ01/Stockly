@@ -3,6 +3,7 @@ import { Redis } from 'ioredis';
 
 import { env } from '../config/env.js';
 import { REDIS_CLIENT } from './redis.constants.js';
+import { RedisThrottlerStorage } from '../common/rate-limit/redis-throttler-storage.js';
 
 @Global()
 @Module({
@@ -11,13 +12,12 @@ import { REDIS_CLIENT } from './redis.constants.js';
       provide: REDIS_CLIENT,
       useFactory: () => {
         return new Redis(env.redis.url, {
-          // Evita que la app se cuelgue esperando a Redis al bootear si
-          // aún no está listo; los comandos se encolan y reintentan.
           maxRetriesPerRequest: 3,
         });
       },
     },
+    RedisThrottlerStorage,
   ],
-  exports: [REDIS_CLIENT],
+  exports: [REDIS_CLIENT, RedisThrottlerStorage],
 })
 export class RedisModule {}

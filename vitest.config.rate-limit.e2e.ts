@@ -1,13 +1,11 @@
-// vitest.config.e2e.ts
-import { defineConfig, configDefaults } from 'vitest/config';
+import { defineConfig } from 'vitest/config';
 import swc from 'unplugin-swc';
 
 export default defineConfig({
   test: {
-    include: ['src/**/*.e2e-spec.ts'],
-    exclude: [...configDefaults.exclude, '**/rate-limit/**'],
+    include: ['src/**/*.rate-limit.e2e-spec.ts'],
     environment: 'node',
-    setupFiles: ['./test/setup-env.ts'],
+    setupFiles: ['./test/setup-env.rate-limit.ts'],
     testTimeout: 30000,
     hookTimeout: 30000,
     globals: true,

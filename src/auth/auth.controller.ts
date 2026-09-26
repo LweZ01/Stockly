@@ -39,7 +39,14 @@ export class AuthController {
   @Post('register')
   @ApiOperation({ summary: 'Registrar un nuevo usuario' })
   @HttpCode(HttpStatus.CREATED)
-  @Throttle({ default: { limit: 3, ttl: 60 * 60 * 1000 } })
+  // Límite estricto: previene creación masiva de cuentas por IP.
+  // En NODE_ENV=test, env.ts sube este límite drásticamente (ver env.ts).
+  @Throttle({
+    default: {
+      limit: env.rateLimit.registerLimit,
+      ttl: env.rateLimit.registerTtlMs,
+    },
+  })
   async register(@Body() dto: RegisterDto) {
     const user = await this.authService.register(dto);
     const { password, ...safeUser } = user;
@@ -53,7 +60,14 @@ export class AuthController {
       'Devuelve un access token en el body y setea el refresh token como cookie httpOnly.',
   })
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: 60 * 1000 } })
+  // Límite estricto: mitiga fuerza bruta de contraseñas por IP.
+  // En NODE_ENV=test, env.ts sube este límite drásticamente (ver env.ts).
+  @Throttle({
+    default: {
+      limit: env.rateLimit.loginLimit,
+      ttl: env.rateLimit.loginTtlMs,
+    },
+  })
   async login(
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,

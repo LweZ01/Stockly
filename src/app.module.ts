@@ -4,6 +4,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'node:path';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { RateLimitModule } from './common/rate-limit/rate-limit.module.js';
 import { typeOrmConfig } from './config/typeorm.config.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -18,6 +19,7 @@ import { RedisModule } from './redis/redis.module.js';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({ useFactory: typeOrmConfig }),
+    RateLimitModule,
     RedisModule,
     AuthModule,
     UsersModule,

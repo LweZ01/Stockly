@@ -25,10 +25,20 @@ interface RedisConfig {
   url: string;
 }
 
+interface RateLimitConfig {
+  globalLimit: number;
+  globalTtlMs: number;
+  loginLimit: number;
+  loginTtlMs: number;
+  registerLimit: number;
+  registerTtlMs: number;
+}
+
 interface AppConfig {
   db: DbConfig;
   jwt: JwtConfig;
   redis: RedisConfig;
+  rateLimit: RateLimitConfig;
 }
 
 const REQUIRED_ENVS = [
@@ -90,6 +100,8 @@ function loadConfig(): AppConfig {
     );
   }
 
+  const isTest = process.env.NODE_ENV === 'test';
+
   const rawConfig: AppConfig = {
     db: {
       host: required('DB_HOST'),
@@ -115,6 +127,20 @@ function loadConfig(): AppConfig {
     },
     redis: {
       url: required('REDIS_URL'),
+    },
+    rateLimit: {
+      globalLimit: optionalInt(
+        'RATE_LIMIT_GLOBAL_LIMIT',
+        isTest ? 100_000 : 100,
+      ),
+      globalTtlMs: optionalInt('RATE_LIMIT_GLOBAL_TTL_MS', 60_000),
+      loginLimit: optionalInt('RATE_LIMIT_LOGIN_LIMIT', isTest ? 100_000 : 5),
+      loginTtlMs: optionalInt('RATE_LIMIT_LOGIN_TTL_MS', 60_000),
+      registerLimit: optionalInt(
+        'RATE_LIMIT_REGISTER_LIMIT',
+        isTest ? 100_000 : 3,
+      ),
+      registerTtlMs: optionalInt('RATE_LIMIT_REGISTER_TTL_MS', 60 * 60 * 1000),
     },
   };
 
