@@ -2,6 +2,7 @@
 
 import './style.css';
 import { silentRefresh, logout } from './services/auth.service.js';
+import { isAdmin } from './services/auth-store.js';
 import { initAuthView } from './views/auth.view.js';
 import {
   registerRoute,
@@ -28,9 +29,13 @@ const logoutBtn = document.getElementById('logout-btn');
 
 const sidebar = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebar-toggle');
-// Botón hamburguesa flotante (el id conserva el nombre del topbar viejo)
 const mobileMenuBtn = document.getElementById('topbar-menu-btn');
 const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+// Links del sidebar marcados como visibles solo para ADMIN (ver index.html)
+const adminOnlyNavLinks = document.querySelectorAll(
+  '.nav-link[data-admin-only]',
+);
 
 registerRoute('dashboard', {
   title: 'Dashboard',
@@ -60,21 +65,25 @@ registerRoute('profile', {
 });
 
 // ------------------------------------------------------------
+// Visibilidad del sidebar según rol
+// ------------------------------------------------------------
+function updateSidebarVisibility() {
+  const admin = isAdmin();
+  adminOnlyNavLinks.forEach((link) => {
+    link.classList.toggle('hidden', !admin);
+  });
+}
+
+// ------------------------------------------------------------
 // Pantallas
 // ------------------------------------------------------------
 function showAuthScreen() {
   resetRouter();
 
-  // Sidebar mobile abierta: si no se cierra, reaparece abierta (con su
-  // overlay) en el próximo login.
   closeSidebar();
 
-  // Cualquier <dialog> modal que haya quedado abierto (por ejemplo el
-  // confirm-dialog, que vive en <body> y no lo limpia resetRouter) taparía
-  // la pantalla de login. Cerrarlo también resuelve su promesa con false.
   document.querySelectorAll('dialog[open]').forEach((dialog) => dialog.close());
 
-  // No dejar credenciales tipeadas en el DOM tras un logout o expiración.
   document.getElementById('login-form')?.reset();
   document.getElementById('register-form')?.reset();
 
@@ -90,6 +99,10 @@ function showAppScreen(user) {
 
   userName.textContent = user.name;
   userRole.textContent = user.role;
+
+  // Debe recalcularse en cada login: un logout seguido de un login con
+  // otro rol reutiliza el mismo DOM del sidebar (no se recrea).
+  updateSidebarVisibility();
 
   if (!routerStarted) {
     startRouter();

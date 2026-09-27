@@ -2,7 +2,7 @@ FROM node:22-alpine AS base
 
 RUN npm install -g npm@11
 
-# ---- Etapa 1: dependencias de producción ----
+# ---- Etapa 1: dependencias de producción (backend) ----
 FROM base AS deps-prod
 
 ENV NODE_ENV=production
@@ -14,7 +14,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-# ---- Etapa 2: build ----
+# ---- Etapa 2: build (backend + frontend) ----
 FROM base AS builder
 
 WORKDIR /app
@@ -23,6 +23,12 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+
+WORKDIR /app/frontend
+RUN npm ci
+RUN npm run build
+
+WORKDIR /app
 RUN npm run build
 
 # ---- Etapa 3: runtime ----
@@ -36,6 +42,7 @@ RUN addgroup -S app && adduser -S app -G app
 
 COPY --from=deps-prod --chown=app:app /app/node_modules ./node_modules
 COPY --from=builder --chown=app:app /app/dist ./dist
+COPY --from=builder --chown=app:app /app/public ./public
 COPY --chown=app:app package.json ./
 
 USER app
