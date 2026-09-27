@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddPerformanceIndexes1758900000000 implements MigrationInterface {
-  name = 'AddPerformanceIndexes1758900000000';
+export class AddPerformanceIndexes1790356250251 implements MigrationInterface {
+  name = 'AddPerformanceIndexes1790356250251';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // --- Extensión necesaria para índices GIN de búsqueda por substring (ILIKE '%texto%') ---
